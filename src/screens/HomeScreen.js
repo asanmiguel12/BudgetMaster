@@ -88,7 +88,8 @@ export default function HomeScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ paddingBottom: 240 }}>
         {/* Budget Summary Card (appears after first transaction) */}
         {showSummary ? (
           <Animated.View style={[styles.summaryCard, {

@@ -1,279 +1,233 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Animated, StyleSheet, Text } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 
 export default function CashStack({ percentRemaining, isAnimating }) {
-  const shakeAnim = useRef(new Animated.Value(0)).current;
-  const flyX = useRef(new Animated.Value(0)).current;
-  const flyY = useRef(new Animated.Value(0)).current;
-  const flyOpacity = useRef(new Animated.Value(0)).current;
-  const flyRotate = useRef(new Animated.Value(0)).current;
+  const billCount = Math.max(1, Math.ceil((percentRemaining / 100) * 30));
+
+  // Idle rocking animation for top bill
+  const idleRock = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (isAnimating) {
-      flyOpacity.setValue(1);
-      flyX.setValue(0);
-      flyY.setValue(0);
-      flyRotate.setValue(0);
-
-      Animated.parallel([
+    if (!isAnimating) {
+      Animated.loop(
         Animated.sequence([
-          Animated.timing(shakeAnim, { toValue: 8, duration: 80, useNativeDriver: true }),
-          Animated.timing(shakeAnim, { toValue: -8, duration: 80, useNativeDriver: true }),
-          Animated.timing(shakeAnim, { toValue: 6, duration: 80, useNativeDriver: true }),
-          Animated.timing(shakeAnim, { toValue: -6, duration: 80, useNativeDriver: true }),
-          Animated.timing(shakeAnim, { toValue: 0, duration: 80, useNativeDriver: true }),
-        ]),
-        Animated.timing(flyX, { toValue: 80, duration: 900, useNativeDriver: true }),
-        Animated.timing(flyY, { toValue: -60, duration: 900, useNativeDriver: true }),
-        Animated.timing(flyRotate, { toValue: 1, duration: 900, useNativeDriver: true }),
-        Animated.sequence([
-          Animated.delay(400),
-          Animated.timing(flyOpacity, { toValue: 0, duration: 500, useNativeDriver: true }),
-        ]),
-      ]).start();
+          Animated.timing(idleRock, {
+            toValue: 1,
+            duration: 700,
+            useNativeDriver: true,
+          }),
+          Animated.timing(idleRock, {
+            toValue: -1,
+            duration: 700,
+            useNativeDriver: true,
+          }),
+          Animated.timing(idleRock, {
+            toValue: 0,
+            duration: 700,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      idleRock.stopAnimation();
+      idleRock.setValue(0);
     }
   }, [isAnimating]);
 
-  const stackScale = Math.max(0.55, percentRemaining / 100);
-  const flyRotateInterp = flyRotate.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '25deg'],
+  // Convert idleRock (-1 → 1) into rotation degrees
+  const idleRotate = idleRock.interpolate({
+    inputRange: [-1, 0, 1],
+    outputRange: ['-4deg', '0deg', '4deg'],
   });
 
   return (
     <View style={styles.container}>
-      {/* Big stack shadow */}
-      <View style={[styles.bigShadow, { width: 180 * stackScale }]} />
+      {/* Shadow */}
+      <View style={[styles.shadow, { width: 260 }]} />
 
       {/* MAIN STACK */}
-      <Animated.View
-        style={[
-          styles.mainStackWrapper,
-          {
-            transform: [
-              { translateX: shakeAnim },
-              { scaleX: stackScale },
-              { scaleY: stackScale },
-            ],
-          },
-        ]}
-      >
-        <View style={styles.mainBill}>
-          <View style={styles.mainBand} />
-          <View style={styles.mainDollarCircle}>
-            <Text style={styles.mainDollarSign}>$</Text>
-          </View>
-        </View>
-      </Animated.View>
+      <View style={styles.stackWrapper}>
+        {Array.from({ length: billCount }).map((_, i) => {
+          const tilt = (i % 2 === 0 ? 1 : -1) * (1 + Math.random() * 2);
+          const scale = 0.85 + (percentRemaining / 100) * 0.15;
 
-      {/* SMALL STACKS */}
-      <View style={styles.smallStacksRow}>
-        <View style={[styles.smallStack, styles.s1]}>
-          <View style={styles.smallBand} />
-        </View>
+          // FIX: apply idle rocking inside the same transform chain
+          const animatedTransforms =
+            i === billCount - 1 ? [{ rotateZ: idleRotate }] : [];
 
-        <View style={[styles.smallStack, styles.s2]}>
-          <View style={styles.smallBand} />
-        </View>
+          return (
+            <Animated.View
+              key={i}
+              style={[
+                styles.bill,
+                {
+                  bottom: i * 4,
+                  transform: [
+                    { rotateX: '55deg' },   // keeps bill laying down
+                    { rotateZ: `${tilt}deg` },
+                    { scale },
+                    ...animatedTransforms,  // rocking applied LAST
+                  ],
+                  zIndex: i,
+                },
+              ]}
+            >
+              <View style={styles.band} />
+              <View style={styles.innerCircle}>
+                <Text style={styles.dollar}>$</Text>
+              </View>
 
-        <View style={[styles.smallStack, styles.s3]}>
-          <View style={styles.smallBand} />
-        </View>
-
-        <View style={[styles.smallStack, styles.s4]}>
-          <View style={styles.smallBand} />
-        </View>
+              {i === billCount - 1 && (
+                <Text style={styles.sparkle}>✦</Text>
+              )}
+            </Animated.View>
+          );
+        })}
       </View>
 
-      {/* FLYING BILL */}
-      {isAnimating && (
-        <Animated.View
-          style={[
-            styles.flyingBill,
-            {
-              transform: [
-                { translateX: flyX },
-                { translateY: flyY },
-                { rotate: flyRotateInterp },
-              ],
-              opacity: flyOpacity,
-            },
-          ]}
-        >
-          <View style={styles.flyingBillBand} />
-        </Animated.View>
-      )}
+      {/* FOUR MINI STACKS */}
+      <View style={styles.miniRow}>
+        <MiniStack label="1" />
+        <MiniStack label="5" />
+        <MiniStack label="20" />
+        <MiniStack label="100" />
+      </View>
 
-      {/* SPARKLES */}
-      {percentRemaining > 50 && !isAnimating && (
-        <>
-          <Text style={[styles.sparkle, { top: 20, left: '20%' }]}>✦</Text>
-          <Text style={[styles.sparkle, { top: 10, right: '22%', fontSize: 14 }]}>✦</Text>
-        </>
-      )}
-
-      {/* PERCENT PILL */}
+      {/* Percent pill */}
       <View style={styles.percentPill}>
         <Text style={styles.percentText}>
-          {parseFloat(percentRemaining).toFixed(2)}% of budget remaining
+          {percentRemaining.toFixed(2)}% of budget remaining
         </Text>
       </View>
     </View>
   );
 }
 
+/* MINI STACK COMPONENT */
+function MiniStack({ label }) {
+  const miniBills = 6;
+
+  return (
+    <View style={miniStyles.wrapper}>
+      {Array.from({ length: miniBills }).map((_, i) => {
+        const tilt = (i % 2 === 0 ? 1 : -1) * 1.5;
+
+        return (
+          <View
+            key={i}
+            style={[
+              miniStyles.bill,
+              {
+                bottom: i * 3.6,
+                transform: [
+                  { rotateX: '55deg' },
+                  { rotateZ: `${tilt}deg` },
+                  { scale: 0.9 },
+                ],
+                zIndex: i,
+              },
+            ]}
+          >
+            <View style={miniStyles.band} />
+
+            {i === miniBills - 1 && (
+              <View style={miniStyles.denomCircle}>
+                <Text style={miniStyles.denomText}>{label}</Text>
+              </View>
+            )}
+
+            {i === miniBills - 1 && (
+              <Text style={miniStyles.sparkle}>✦</Text>
+            )}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+/* MAIN STYLES */
 const styles = StyleSheet.create({
   container: {
-    height: 280,
+    height: 360,
     alignItems: 'center',
     justifyContent: 'flex-end',
-    position: 'relative',
   },
 
-  /* BIG STACK SHADOW */
-  bigShadow: {
+  shadow: {
     position: 'absolute',
-    bottom: 110,
-    height: 26,
-    backgroundColor: '#d4edff',
-    borderRadius: 60,
-    opacity: 0.55,
+    bottom: 140,
+    height: 20,
+    backgroundColor: 'rgba(0,0,0,0.15)',
+    borderRadius: 50,
   },
 
-  /* MAIN STACK */
-  mainStackWrapper: {
+  stackWrapper: {
     position: 'absolute',
-    bottom: 120,
-    width: 160,
-    height: 120,
+    bottom: 160,
+    width: 240,
+    height: 140,
     alignItems: 'center',
-    justifyContent: 'center',
   },
 
-  mainBill: {
-    width: 150,
-    height: 95,
-    backgroundColor: '#4CAF50',
-    borderRadius: 14,
-    borderWidth: 3,
-    borderColor: '#2E7D32',
+  bill: {
+    position: 'absolute',
+    width: 240,
+    height: 110,
+    backgroundColor: '#10b981',
+    borderRadius: 18,
+    borderWidth: 4,
+    borderColor: '#064e3b',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
   },
 
-  mainBand: {
+  band: {
     position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 48,
-    backgroundColor: '#F9A825',
-    borderLeftWidth: 2,
-    borderRightWidth: 2,
-    borderColor: '#C68400',
+    width: 50,
+    height: '100%',
+    backgroundColor: '#fbbf24',
+    left: '50%',
+    transform: [{ translateX: -25 }],
+    borderLeftWidth: 4,
+    borderRightWidth: 4,
+    borderColor: 'rgba(0,0,0,0.1)',
   },
 
-  mainDollarCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#FFF',
+  innerCircle: {
+    width: 68,
+    height: 68,
+    backgroundColor: '#fff',
+    borderRadius: 34,
+    borderWidth: 4,
+    borderColor: '#064e3b',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#EEE',
     zIndex: 2,
   },
 
-  mainDollarSign: {
-    fontSize: 26,
+  dollar: {
+    fontSize: 32,
     fontWeight: '900',
-    color: '#2E7D32',
-  },
-
-  /* SMALL STACKS ROW */
-  smallStacksRow: {
-    position: 'absolute',
-    bottom: 40,
-    flexDirection: 'row',
-    gap: 22,
-  },
-
-  /* SHARED SMALL STACK STYLE */
-  smallStack: {
-    width: 48,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: '#2E7D32',
-
-    /* Perspective tilt like the photo */
-    transform: [
-      { perspective: 600 },
-      { rotateX: '14deg' },
-    ],
-
-    /* Soft shadow like the table */
-    shadowColor: '#000',
-    shadowOpacity: 0.22,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 3 },
-
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-
-  /* INDIVIDUAL STACK HEIGHTS + COLORS */
-  s1: { height: 32, backgroundColor: '#C8E6C9' },
-  s2: { height: 42, backgroundColor: '#A5D6A7' },
-  s3: { height: 52, backgroundColor: '#81C784' },
-  s4: { height: 62, backgroundColor: '#66BB6A' },
-
-  /* SMALL STACK BAND */
-  smallBand: {
-    position: 'absolute',
-    height: 10,
-    width: '100%',
-    backgroundColor: '#F9A825',
-    opacity: 0.9,
-    top: '45%',
-  },
-
-  /* FLYING BILL */
-  flyingBill: {
-    position: 'absolute',
-    bottom: 150,
-    left: '25%',
-    width: 80,
-    height: 50,
-    backgroundColor: '#4CAF50',
-    borderRadius: 10,
-    borderWidth: 3,
-    borderColor: '#2E7D32',
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-
-  flyingBillBand: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 30,
-    backgroundColor: '#F9A825',
-    borderLeftWidth: 2,
-    borderRightWidth: 2,
-    borderColor: '#C68400',
+    color: '#064e3b',
   },
 
   sparkle: {
     position: 'absolute',
-    color: '#FFD700',
-    fontSize: 18,
-    fontWeight: '700',
+    top: 10,
+    right: 15,
+    color: '#fff',
+    fontSize: 20,
+    textShadowColor: 'rgba(255,255,255,0.9)',
+    textShadowRadius: 10,
+    zIndex: 5,
+  },
+
+  miniRow: {
+    position: 'absolute',
+    bottom: 40,
+    flexDirection: 'row',
+    gap: 20,
   },
 
   percentPill: {
@@ -291,5 +245,68 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#444',
     fontWeight: '500',
+  },
+});
+
+/* MINI STACK STYLES */
+const miniStyles = StyleSheet.create({
+  wrapper: {
+    width: 84,
+    height: 108,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    position: 'relative',
+  },
+
+  bill: {
+    position: 'absolute',
+    width: 84,
+    height: 48,
+    backgroundColor: '#10b981',
+    borderRadius: 12,
+    borderWidth: 3,
+    borderColor: '#064e3b',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  band: {
+    position: 'absolute',
+    width: 24,
+    height: '100%',
+    backgroundColor: '#fbbf24',
+    left: '50%',
+    transform: [{ translateX: -12 }],
+    borderLeftWidth: 3,
+    borderRightWidth: 3,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+
+  denomCircle: {
+    width: 34,
+    height: 34,
+    backgroundColor: '#fff',
+    borderRadius: 17,
+    borderWidth: 3,
+    borderColor: '#064e3b',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+
+  denomText: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#064e3b',
+  },
+
+  sparkle: {
+    position: 'absolute',
+    top: 4,
+    right: 6,
+    color: '#fff',
+    fontSize: 14,
+    textShadowColor: 'rgba(255,255,255,0.9)',
+    textShadowRadius: 6,
   },
 });
