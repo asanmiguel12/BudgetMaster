@@ -4,17 +4,8 @@ const BudgetContext = createContext();
 
 const INITIAL_BUDGET = 2500.00;
 
-const INITIAL_TRANSACTIONS = [
-  {
-    id: '1',
-    merchant: 'Lunch',
-    category: 'food',
-    amount: 12.50,
-    date: new Date(2025, 4, 12, 12, 45),
-    icon: 'restaurant',
-    color: '#4CAF50',
-  },
-];
+// ⭐ Start with no transactions
+const INITIAL_TRANSACTIONS = [];
 
 export function BudgetProvider({ children }) {
   const [budget] = useState(INITIAL_BUDGET);
@@ -38,11 +29,12 @@ export function BudgetProvider({ children }) {
   }, []);
 
   const simulateBankNotification = useCallback(() => {
+    const randomAmount = Math.floor(Math.random() * 40) + 1;
     const newTx = {
       id: Date.now().toString(),
       merchant: 'Coffee Corner',
       category: 'coffee',
-      amount: 25.60,
+      amount: randomAmount,
       date: new Date(),
       icon: 'local-cafe',
       color: '#8B6914',
