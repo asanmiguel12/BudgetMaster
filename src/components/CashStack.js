@@ -1,5 +1,9 @@
 import React, { useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
+import { View, Animated, Image, StyleSheet, Easing } from 'react-native';
+
+// ⭐ Use the same image for ALL stacks
+import MainMoneyStack from '../../assets/MainMoneyStack.png';
+
 
 export default function CashStack({ onRef, percentRemaining = 100 }) {
   const stackRefs = {
@@ -25,7 +29,7 @@ export default function CashStack({ onRef, percentRemaining = 100 }) {
     });
   }
 
-  // Idle rocking animation
+  // ⭐ Idle rocking animation for big stack
   const idleRock = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -55,61 +59,36 @@ export default function CashStack({ onRef, percentRemaining = 100 }) {
 
   const idleRotate = idleRock.interpolate({
     inputRange: [-1, 0, 1],
-    outputRange: ['-4deg', '0deg', '4deg'],
+    outputRange: ['-3deg', '0deg', '3deg'],
   });
-
-  const billCount = Math.max(1, Math.ceil((percentRemaining / 100) * 30));
 
   return (
     <View style={styles.container}>
-      {/* MAIN STACK */}
-      <View style={styles.mainStack}>
-        {Array.from({ length: billCount }).map((_, i) => {
-          const tilt = (i % 2 === 0 ? 1 : -1) * 2;
 
-          return (
-            <Animated.View
-              key={i}
-              style={[
-                styles.bigBill,
-                {
-                  bottom: i * 2.5,
-                  transform: [
-                    { rotateX: '55deg' },
-                    {
-                      rotateZ:
-                        i === billCount - 1
-                          ? idleRotate
-                          : `${tilt}deg`,
-                    },
-                  ],
-                  zIndex: i,
-                },
-              ]}
-            >
-              <View style={styles.bigBand} />
-              <View style={styles.bigCircle}>
-                <Text style={styles.bigDollar}>$</Text>
-              </View>
-            </Animated.View>
-          );
-        })}
-      </View>
+      {/* ⭐ BIG STACK IMAGE */}
+      <Animated.Image
+        source={MainMoneyStack}
+        style={[
+          styles.bigStackImage,
+          {
+            transform: [{ rotateZ: idleRotate }],
+          },
+        ]}
+      />
 
-      {/* MINI STACKS */}
+      {/* ⭐ MINI STACKS */}
       <View style={styles.miniRow}>
-        <MiniStack ref={stackRefs[1]} label="1" color="#10b981" />
-        <MiniStack ref={stackRefs[5]} label="5" color="#10b981" />
-        <MiniStack ref={stackRefs[20]} label="20" color="#8b5cf6" />
-        <MiniStack ref={stackRefs[100]} label="100" color="#a78bfa" />
+        <MiniStack ref={stackRefs[1]} />
+        <MiniStack ref={stackRefs[5]} />
+        <MiniStack ref={stackRefs[20]} />
+        <MiniStack ref={stackRefs[100]} />
       </View>
     </View>
   );
 }
 
 /* MINI STACK COMPONENT */
-const MiniStack = forwardRef(({ label, color }, ref) => {
-  const count = 6;
+const MiniStack = forwardRef((props, ref) => {
   const flyAnim = useRef(new Animated.Value(0)).current;
 
   useImperativeHandle(ref, () => ({
@@ -151,39 +130,11 @@ const MiniStack = forwardRef(({ label, color }, ref) => {
 
   return (
     <View style={miniStyles.wrapper}>
-      {Array.from({ length: count }).map((_, i) => {
-        const isTop = i === count - 1;
-
-        if (isTop) {
-          return (
-            <Animated.View
-              key={i}
-              style={[
-                miniStyles.bill,
-                { backgroundColor: color, bottom: i * 6 },
-                flyStyle,
-              ]}
-            >
-              <View style={miniStyles.band} />
-              <View style={miniStyles.circle}>
-                <Text style={miniStyles.text}>{label}</Text>
-              </View>
-            </Animated.View>
-          );
-        }
-
-        return (
-          <View
-            key={i}
-            style={[
-              miniStyles.bill,
-              { backgroundColor: color, bottom: i * 6 },
-            ]}
-          >
-            <View style={miniStyles.band} />
-          </View>
-        );
-      })}
+      {/* ⭐ Only ONE image needed — the top bill animates */}
+      <Animated.Image
+        source={MainMoneyStack}
+        style={[miniStyles.billImage, flyStyle]}
+      />
     </View>
   );
 });
@@ -195,102 +146,34 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
 
-  mainStack: {
-    marginBottom: 40,
-    width: 240,
-    height: 140,
-    alignItems: 'center',
-    position: 'relative',
-  },
-
-  bigBill: {
-    position: 'absolute',
-    width: 240,
-    height: 110,
-    backgroundColor: '#10b981',
-    borderWidth: 4,
-    borderColor: '#064e3b',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  bigBand: {
-    position: 'absolute',
-    width: 50,
-    height: '100%',
-    backgroundColor: '#fbbf24',
-    left: '50%',
-    transform: [{ translateX: -25 }],
-    borderLeftWidth: 4,
-    borderRightWidth: 4,
-    borderColor: 'rgba(0,0,0,0.1)',
-  },
-
-  bigCircle: {
-    width: 68,
-    height: 68,
-    backgroundColor: '#fff',
-    borderRadius: 34,
-    borderWidth: 4,
-    borderColor: '#064e3b',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  bigDollar: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: '#064e3b',
+  bigStackImage: {
+    width: 260,
+    height: 200,
+    resizeMode: 'contain',
+    marginBottom: 20,
   },
 
   miniRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: 260,
+    marginTop: -10,
   },
 });
 
 const miniStyles = StyleSheet.create({
   wrapper: {
-    width: 48,
-    height: 108,
+    width: 60,
+    height: 90,
     alignItems: 'center',
     justifyContent: 'flex-end',
     position: 'relative',
   },
-  bill: {
+
+  billImage: {
+    width: 190,
+    height: 90,
+    resizeMode: 'contain',
     position: 'absolute',
-    width: 48,
-    height: 84,
-    borderWidth: 3,
-    borderColor: '#064e3b',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  band: {
-    position: 'absolute',
-    width: '100%',
-    height: 24,
-    backgroundColor: '#fbbf24',
-    top: '50%',
-    transform: [{ translateY: -12 }],
-    borderTopWidth: 3,
-    borderBottomWidth: 3,
-    borderColor: 'rgba(0,0,0,0.1)',
-  },
-  circle: {
-    width: 34,
-    height: 34,
-    backgroundColor: '#fff',
-    borderRadius: 17,
-    borderWidth: 3,
-    borderColor: '#064e3b',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  text: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: '#064e3b',
   },
 });
