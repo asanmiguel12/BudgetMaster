@@ -13,9 +13,9 @@ function getOnTrackStatus(progress) {
     return { label: 'Budget Master!', color: '#2a8a2a' };
   }
   if (progress >= FAIR_THRESHOLD) {
-    return { label: 'Still on track!', color: '#d4a017' };
+    return { label: 'Still On Track!', color: '#d4a017' };
   }
-  return { label: 'Budget better!', color: '#e53e3e' };
+  return { label: 'Budget Better!', color: '#e53e3e' };
 }
 
 export default function TimeframeProgressBar({
@@ -112,7 +112,15 @@ export default function TimeframeProgressBar({
         ) : (
           <Text style={styles.dragHint}>Drag to preview on-track progress</Text>
         )}
-        <Text style={[styles.status, { color: status.color }]}>{status.label}</Text>
+        {status.lines ? (
+          <View style={styles.stackedStatus}>
+            {status.lines.map((line) => (
+              <Text key={line} style={[styles.status, { color: status.color }]}>{line}</Text>
+            ))}
+          </View>
+        ) : (
+          <Text style={[styles.status, { color: status.color }]}>{status.label}</Text>
+        )}
       </View>
     </View>
 
@@ -205,5 +213,10 @@ const styles = StyleSheet.create({
   status: {
     fontSize: 13,
     fontWeight: '700',
+    textAlign: 'right',
+  },
+
+  stackedStatus: {
+    alignItems: 'flex-end',
   },
 });

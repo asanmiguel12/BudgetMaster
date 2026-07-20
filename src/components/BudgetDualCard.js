@@ -11,8 +11,8 @@ const FAIR_THRESHOLD = 50;
 
 const ON_TRACK_STATUS = {
   good: { label: 'Budget Master!', color: '#2a8a2a' },
-  fair: { label: 'Still on track!', color: '#d4a017' },
-  bad: { label: 'Budget better!', color: '#e53e3e' },
+  fair: { label: 'Still On Track!', lines: ['Budget', 'On Track!'], color: '#d4a017' },
+  bad: { label: 'Budget Better!', lines: ['Budget', 'Better!'], color: '#e53e3e' },
 };
 
 function getOnTrackStatus(progress) {
@@ -192,6 +192,7 @@ function MetricColumn({
   heroValue,
   footerLabel,
   footerValue,
+  footerLines,
   footerColor,
   heroColor,
   isGold,
@@ -245,9 +246,22 @@ function MetricColumn({
         {footerLabel ? (
           <Text style={[styles.footerLabel, { fontSize: layout.footerLabelSize }]}>{footerLabel}</Text>
         ) : null}
-        <Text style={[styles.footerValue, { fontSize: layout.footerSize, color: footerColor }]}>
-          {footerValue}
-        </Text>
+        {footerLines ? (
+          <View style={styles.stackedFooter}>
+            {footerLines.map((line) => (
+              <Text
+                key={line}
+                style={[styles.footerValue, { fontSize: layout.footerSize, color: footerColor }]}
+              >
+                {line}
+              </Text>
+            ))}
+          </View>
+        ) : (
+          <Text style={[styles.footerValue, { fontSize: layout.footerSize, color: footerColor }]}>
+            {footerValue}
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -315,6 +329,7 @@ export default function BudgetDualCard({ remaining, onTrackProgress, budget }) {
         label="On-Track Progress"
         heroValue={onTrackLabel}
         footerValue={onTrackStatus.label}
+        footerLines={onTrackStatus.lines}
         footerColor={onTrackStatus.color}
         heroColor={isHighScore ? '#FFE566' : '#fff'}
         isGold
@@ -458,6 +473,11 @@ const styles = StyleSheet.create({
   footerValue: {
     fontWeight: '700',
     textAlign: 'center',
+    width: '100%',
+  },
+
+  stackedFooter: {
+    alignItems: 'center',
     width: '100%',
   },
 
