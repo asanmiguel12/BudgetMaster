@@ -199,9 +199,16 @@ function MetricColumn({
 }) {
   return (
     <View style={styles.column}>
-      <View style={[styles.blueSection, { paddingBottom: layout.bluePaddingBottom }]}>
+      <View style={[styles.blueSection, {
+        height: layout.blueSectionHeight,
+        paddingBottom: layout.bluePaddingBottom,
+      }]}>
         <Text style={[styles.metricLabel, { fontSize: layout.labelSize }]}>{label}</Text>
-        <Text style={[styles.heroValue, { fontSize: layout.heroSize }, heroColor && { color: heroColor }]}>
+        <Text
+          style={[styles.heroValue, { fontSize: layout.heroSize }, heroColor && { color: heroColor }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+        >
           {heroValue}
         </Text>
       </View>
@@ -227,7 +234,7 @@ function MetricColumn({
         </View>
       </View>
 
-      <View style={styles.whiteSection}>
+      <View style={[styles.whiteSection, { minHeight: layout.whiteSectionHeight }]}>
         {footerLabel ? (
           <Text style={[styles.footerLabel, { fontSize: layout.footerLabelSize }]}>{footerLabel}</Text>
         ) : null}
@@ -258,6 +265,8 @@ export default function BudgetDualCard({ remaining, onTrackProgress, budget }) {
       stackAreaHeight: Math.round(130 * scale),
       stackOverlap: Math.round(-48 * scale),
       bluePaddingBottom: Math.round(52 * scale),
+      blueSectionHeight: Math.round(cardHeight * 0.38),
+      whiteSectionHeight: Math.round(cardHeight * 0.22),
     };
   }, [cardHeight]);
 
@@ -327,7 +336,6 @@ const styles = StyleSheet.create({
   },
 
   blueSection: {
-    flex: 1,
     width: '100%',
     backgroundColor: '#1a6fd4',
     paddingTop: 20,
@@ -403,7 +411,6 @@ const styles = StyleSheet.create({
   },
 
   whiteSection: {
-    flex: 0.55,
     width: '100%',
     backgroundColor: '#fff',
     alignItems: 'center',
