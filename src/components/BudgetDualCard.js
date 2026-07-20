@@ -1,8 +1,11 @@
 import React, { useRef, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, Animated, Easing, useWindowDimensions } from 'react-native';
 import MainMoneyStack from '../../assets/MainMoneyStack.png';
+import GoldenMoneyStack from '../../assets/GoldenMoneyStack.png';
 
 const GOLD_THRESHOLD = 75;
+// Golden PNG artwork is smaller within the same canvas; scale to match MainMoneyStack visual size.
+const GOLD_STACK_SCALE = 996 / 724;
 
 function Sparkles({ stackWidth, stackHeight, intense }) {
   const positions = useMemo(() => [
@@ -67,8 +70,9 @@ function Sparkle({ style, size, delay }) {
   );
 }
 
-function StackImage({ isGold, width, height }) {
+function StackImage({ isGold, width, height, fillRatio = 1 }) {
   const idleRock = useRef(new Animated.Value(0)).current;
+  const fillAnim = useRef(new Animated.Value(fillRatio)).current;
 
   useEffect(() => {
     Animated.loop(
@@ -80,20 +84,71 @@ function StackImage({ isGold, width, height }) {
     ).start();
   }, [idleRock]);
 
+  useEffect(() => {
+    Animated.timing(fillAnim, {
+      toValue: fillRatio,
+      duration: 800,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [fillRatio, fillAnim]);
+
   const idleRotate = idleRock.interpolate({
     inputRange: [-1, 0, 1],
     outputRange: ['-2deg', '0deg', '2deg'],
   });
 
+  const stackScale = isGold ? GOLD_STACK_SCALE : 1;
+  const imageWidth = width * stackScale;
+  const imageHeight = height * stackScale;
+
+  const clipHeight = fillAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, imageHeight],
+  });
+
+  if (isGold) {
+    return (
+      <View style={{ width, height, alignItems: 'center', justifyContent: 'center' }}>
+        <Animated.Image
+          source={GoldenMoneyStack}
+          style={[
+            { width: imageWidth, height: imageHeight, resizeMode: 'contain' },
+            { transform: [{ rotateZ: idleRotate }] },
+          ]}
+        />
+      </View>
+    );
+  }
+
   return (
-    <Animated.Image
-      source={MainMoneyStack}
-      style={[
-        { width, height, resizeMode: 'contain' },
-        isGold && styles.stackImageGold,
-        { transform: [{ rotateZ: idleRotate }] },
-      ]}
-    />
+    <View style={{ width, height, alignItems: 'center', justifyContent: 'center' }}>
+      <Animated.View
+        style={[
+          { width: imageWidth, height: imageHeight },
+          { transform: [{ rotateZ: idleRotate }] },
+        ]}
+      >
+        <Animated.Image
+          source={MainMoneyStack}
+          style={[styles.stackSilhouette, { width: imageWidth, height: imageHeight }]}
+        />
+        <Animated.View style={[styles.colorClip, { width: imageWidth, height: clipHeight }]}>
+          <Animated.Image
+            source={MainMoneyStack}
+            style={[
+              styles.stackColor,
+              {
+                width: imageWidth,
+                height: imageHeight,
+                bottom: 0,
+                left: 0,
+              },
+            ]}
+          />
+        </Animated.View>
+      </Animated.View>
+    </View>
   );
 }
 
@@ -105,6 +160,8 @@ function MetricColumn({
   heroColor,
   isGold,
   showSparkles,
+  intenseSparkles,
+  budgetFillRatio,
   layout,
 }) {
   return (
@@ -125,10 +182,15 @@ function MetricColumn({
             <Sparkles
               stackWidth={layout.stackWidth}
               stackHeight={layout.stackHeight}
-              intense={isGold}
+              intense={intenseSparkles}
             />
           )}
-          <StackImage isGold={isGold} width={layout.stackWidth} height={layout.stackHeight} />
+          <StackImage
+            isGold={isGold}
+            width={layout.stackWidth}
+            height={layout.stackHeight}
+            fillRatio={budgetFillRatio ?? 1}
+          />
         </View>
       </View>
 
@@ -141,9 +203,12 @@ function MetricColumn({
   );
 }
 
-export default function BudgetDualCard({ remaining, onTrackProgress }) {
+export default function BudgetDualCard({ remaining, onTrackProgress, budget }) {
   const { height: screenHeight } = useWindowDimensions();
   const cardHeight = screenHeight * 0.442;
+  const budgetFillRatio = budget > 0
+    ? Math.max(0, Math.min(1, remaining / budget))
+    : 1;
 
   const layout = useMemo(() => {
     const scale = cardHeight / 380;
@@ -174,6 +239,8 @@ export default function BudgetDualCard({ remaining, onTrackProgress }) {
         footerColor="#1a6fd4"
         isGold={false}
         showSparkles={false}
+        intenseSparkles={false}
+        budgetFillRatio={budgetFillRatio}
         layout={layout}
       />
 
@@ -185,8 +252,9 @@ export default function BudgetDualCard({ remaining, onTrackProgress }) {
         footerValue={onTrackLabel}
         footerColor="#d4a017"
         heroColor={isHighScore ? '#FFE566' : '#fff'}
-        isGold={isHighScore}
+        isGold
         showSparkles
+        intenseSparkles={isHighScore}
         layout={layout}
       />
     </View>
@@ -257,8 +325,22 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
 
-  stackImageGold: {
-    tintColor: '#E8C547',
+  stackSilhouette: {
+    resizeMode: 'contain',
+    tintColor: '#B8BEC6',
+    opacity: 0.55,
+  },
+
+  colorClip: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    overflow: 'hidden',
+  },
+
+  stackColor: {
+    resizeMode: 'contain',
+    position: 'absolute',
   },
 
   sparkle: {

@@ -47,7 +47,7 @@ function TransactionRow({ transaction }) {
 
 export default function HomeScreen({ navigation }) {
   const {
-    remaining, timeframe,
+    budget, remaining, timeframe,
     onTrackProgress, daysRemaining,
     transactions, pendingTransaction, isAnimating,
     simulateBankNotification,
@@ -105,6 +105,7 @@ export default function HomeScreen({ navigation }) {
         <BudgetDualCard
           remaining={remaining}
           onTrackProgress={onTrackProgress}
+          budget={budget}
         />
 
         {transactions.length === 0 && (
