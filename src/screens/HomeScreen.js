@@ -1,10 +1,11 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Animated, StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CashStack from '../components/CashStack';
+import BudgetDualCard from '../components/BudgetDualCard';
 import { useBudget, formatTimeframe } from '../context/BudgetContext';
 
 function TransactionRow({ transaction }) {
@@ -46,19 +47,20 @@ function TransactionRow({ transaction }) {
 
 export default function HomeScreen({ navigation }) {
   const {
-    budget, spent, remaining, percentRemaining, timeframe,
+    remaining, timeframe,
+    onTrackProgress, daysRemaining,
     transactions, pendingTransaction, isAnimating,
     simulateBankNotification,
   } = useBudget();
 
-  const [showSummary, setShowSummary] = useState(false);
   const timeframeLabel = formatTimeframe(timeframe);
+  const onTrackSubtext = daysRemaining === 1
+    ? '1 day left'
+    : `${daysRemaining} days left`;
 
   const cashRef = useRef(null);
 
   const processingOpacity = useRef(new Animated.Value(0)).current;
-  const summaryScale = useRef(new Animated.Value(0.8)).current;
-  const summaryOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (pendingTransaction && isAnimating) {
@@ -68,7 +70,6 @@ export default function HomeScreen({ navigation }) {
 
   useEffect(() => {
     if (isAnimating) {
-      setShowSummary(false);
       Animated.loop(
         Animated.sequence([
           Animated.timing(processingOpacity, { toValue: 1, duration: 600, useNativeDriver: true }),
@@ -78,14 +79,6 @@ export default function HomeScreen({ navigation }) {
     } else {
       processingOpacity.stopAnimation();
       processingOpacity.setValue(0);
-
-      if (transactions.length > 0) {
-        setShowSummary(true);
-        Animated.parallel([
-          Animated.spring(summaryScale, { toValue: 1, useNativeDriver: true }),
-          Animated.timing(summaryOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-        ]).start();
-      }
     }
   }, [isAnimating]);
 
@@ -108,39 +101,14 @@ export default function HomeScreen({ navigation }) {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 140 }}>
 
-        {/* Summary */}
-        {showSummary ? (
-          <Animated.View style={[styles.summaryCard, {
-            transform: [{ scale: summaryScale }],
-            opacity: summaryOpacity,
-          }]}>
-            <Text style={styles.summaryLabel}>Remaining Budget</Text>
-            <Text style={styles.summaryBudget}>
-              ${remaining.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-            </Text>
+        {/* Dual metric card with cash stacks */}
+        <BudgetDualCard
+          remaining={remaining}
+          onTrackProgress={onTrackProgress}
+        />
 
-            <View style={styles.summaryRow}>
-              <View style={styles.summaryStat}>
-                <Text style={styles.summaryStatLabel}>Spent</Text>
-                <Text style={styles.summaryStatValue}>${spent.toFixed(2)}</Text>
-              </View>
-
-              <View style={styles.summaryDivider} />
-
-              <View style={styles.summaryStat}>
-                <Text style={styles.summaryStatLabel}>Overall Budget</Text>
-                <Text style={styles.summaryStatValue}>${budget.toFixed(2)}</Text>
-              </View>
-            </View>
-          </Animated.View>
-        ) : (
-          <View style={styles.budgetHeader}>
-            <Text style={styles.overallLabel}>Overall Budget</Text>
-            <Text style={styles.budgetAmount}>
-              ${budget.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-            </Text>
-            <Text style={styles.thisMonth}>{timeframeLabel}</Text>
-          </View>
+        {transactions.length === 0 && (
+          <Text style={styles.timeframeHint}>{timeframeLabel} · {onTrackSubtext}</Text>
         )}
 
         {/* Deducting label */}
@@ -150,21 +118,13 @@ export default function HomeScreen({ navigation }) {
           </Animated.Text>
         )}
 
-        {/* Cash Stack */}
+        {/* Mini cash stacks */}
         <View style={styles.cashArea}>
-
-{/* Stylized table shape  (Not displaying properly) */}
-<View style={styles.tableShape} />
-
-{/* Stacks on top */}
-<View style={styles.stackWrapper}>
-  <CashStack
-    onRef={(api) => (cashRef.current = api)}
-    percentRemaining={parseFloat(percentRemaining)}
-  />
-</View>
-
-</View>
+          <CashStack
+            miniOnly
+            onRef={(api) => (cashRef.current = api)}
+          />
+        </View>
 
 
         {/* Demo button */}
@@ -220,28 +180,13 @@ const styles = StyleSheet.create({
   bellIcon: { fontSize: 20 },
   headerTitle: { fontSize: 18, fontWeight: '600', color: '#111' },
 
-  budgetHeader: { alignItems: 'center', paddingTop: 24, paddingBottom: 8 },
-  overallLabel: { fontSize: 13, color: '#888', marginBottom: 4 },
-  budgetAmount: { fontSize: 36, fontWeight: '700', color: '#2a8a2a', letterSpacing: -1 },
-  thisMonth: { fontSize: 13, color: '#888', marginTop: 2 },
-
-  summaryCard: {
-    margin: 16,
-    backgroundColor: '#1a6fd4',
-    borderRadius: 16,
-    paddingVertical: 5,
-    paddingHorizontal: 5,
-    alignItems: 'center',
+  timeframeHint: {
+    textAlign: 'center',
+    fontSize: 13,
+    color: '#888',
+    marginTop: -8,
+    marginBottom: 4,
   },
-
-  summaryLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 13, marginBottom: 4 },
-  summaryBudget: { color: '#fff', fontSize: 32, fontWeight: '700', marginBottom: 16 },
-
-  summaryRow: { flexDirection: 'row', width: '100%' },
-  summaryStat: { flex: 1, alignItems: 'center' },
-  summaryDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.3)' },
-  summaryStatLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 12, marginBottom: 2 },
-  summaryStatValue: { color: '#fff', fontSize: 18, fontWeight: '600' },
 
   processingText: {
     textAlign: 'center',
@@ -251,14 +196,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 
-  cashArea: { paddingHorizontal: 20, paddingVertical: 16 },
+  cashArea: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 4 },
 
   /* ⭐ NEW ACTIVITY BOX ⭐ */
   activityContainer: {
     backgroundColor: '#ffffff',
     padding: 16,
     marginHorizontal: 20,
-    marginTop: 20,
+    marginTop: 12,
     borderRadius: 16,
 
     shadowColor: '#000',
@@ -268,22 +213,6 @@ const styles = StyleSheet.create({
 
     elevation: 4,
   },
-
-  // tableShape: {
-  //   width: '90%',
-  //   height: 60,
-  //   backgroundColor: '#8B5A2B',   // brown fill
-  //   borderRadius: 12,
-  //   transform: [{ skewX: '-100deg'}], // gives diagonal edges
-  //   marginTop: 10,
-  // },
-
-  // stackWrapper: {
-  //   marginTop: -40,   // pulls stacks down onto the shape
-  //   alignItems: 'center',
-  // },
-  
-  
 
   sectionHeader: {
     flexDirection: 'row',
@@ -315,8 +244,9 @@ const styles = StyleSheet.create({
   txAmount: { fontSize: 15, fontWeight: '600', color: '#e53e3e' },
 
   demoButton: {
-    margin: 20,
-    marginTop: 24,
+    marginHorizontal: 20,
+    marginTop: 12,
+    marginBottom: 8,
     backgroundColor: '#f0f7ff',
     borderRadius: 12,
     padding: 16,

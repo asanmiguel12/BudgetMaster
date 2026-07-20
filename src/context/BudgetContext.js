@@ -5,6 +5,7 @@ const BudgetContext = createContext();
 
 const BUDGET_STORAGE_KEY = '@mybudget/budget';
 const TIMEFRAME_STORAGE_KEY = '@mybudget/timeframe';
+const PERIOD_START_STORAGE_KEY = '@mybudget/periodStart';
 
 export const TIME_UNITS = {
   days: { label: 'Days', singular: 'day', max: 31 },
@@ -57,11 +58,50 @@ function isValidTimeframe(timeframe) {
   return duration >= 1 && duration <= TIME_UNITS[timeframe.unit].max;
 }
 
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+export function timeframeToTotalDays(timeframe, fromDate = new Date()) {
+  if (!isValidTimeframe(timeframe)) return 0;
+  const { unit, duration } = timeframe;
+  if (unit === 'days') return duration;
+  if (unit === 'weeks') return duration * 7;
+
+  const end = new Date(fromDate);
+  if (unit === 'months') end.setMonth(end.getMonth() + duration);
+  else if (unit === 'years') end.setFullYear(end.getFullYear() + duration);
+  return Math.max(1, Math.round((end - fromDate) / MS_PER_DAY));
+}
+
+export function getBudgetPeriodDays(timeframe, periodStartDate) {
+  if (!isValidTimeframe(timeframe) || !periodStartDate) {
+    return { totalDays: 0, daysRemaining: 0 };
+  }
+
+  const start = new Date(periodStartDate);
+  const totalDays = timeframeToTotalDays(timeframe, start);
+  const daysElapsed = Math.min(
+    totalDays,
+    Math.max(0, Math.floor((Date.now() - start.getTime()) / MS_PER_DAY)),
+  );
+  return { totalDays, daysRemaining: totalDays - daysElapsed };
+}
+
+export function getOnTrackProgress(budget, remaining, timeframe, periodStartDate) {
+  const { totalDays, daysRemaining } = getBudgetPeriodDays(timeframe, periodStartDate);
+  if (totalDays <= 0 || budget <= 0) return 100;
+
+  const expectedRemaining = budget * (daysRemaining / totalDays);
+  if (expectedRemaining <= 0) return remaining >= 0 ? 100 : 0;
+
+  return (remaining / expectedRemaining) * 100;
+}
+
 const INITIAL_TRANSACTIONS = [];
 
 export function BudgetProvider({ children }) {
   const [budget, setBudgetState] = useState(0);
   const [timeframe, setTimeframeState] = useState(null);
+  const [periodStartDate, setPeriodStartDate] = useState(null);
   const [isLoadingBudget, setIsLoadingBudget] = useState(true);
   const [needsBudgetSetup, setNeedsBudgetSetup] = useState(false);
   const [transactions, setTransactions] = useState(INITIAL_TRANSACTIONS);
@@ -72,7 +112,8 @@ export function BudgetProvider({ children }) {
     Promise.all([
       AsyncStorage.getItem(BUDGET_STORAGE_KEY),
       AsyncStorage.getItem(TIMEFRAME_STORAGE_KEY),
-    ]).then(([savedBudget, savedTimeframe]) => {
+      AsyncStorage.getItem(PERIOD_START_STORAGE_KEY),
+    ]).then(([savedBudget, savedTimeframe, savedPeriodStart]) => {
       let hasBudget = false;
       let hasTimeframe = false;
 
@@ -90,24 +131,40 @@ export function BudgetProvider({ children }) {
         hasTimeframe = true;
       }
 
+      if (savedPeriodStart) {
+        const parsedStart = new Date(savedPeriodStart);
+        if (!isNaN(parsedStart.getTime())) {
+          setPeriodStartDate(parsedStart.toISOString());
+        }
+      } else if (hasBudget && hasTimeframe) {
+        const now = new Date().toISOString();
+        setPeriodStartDate(now);
+        AsyncStorage.setItem(PERIOD_START_STORAGE_KEY, now);
+      }
+
       setNeedsBudgetSetup(!hasBudget || !hasTimeframe);
       setIsLoadingBudget(false);
     });
   }, []);
 
   const setBudgetSetup = useCallback(async (amount, selectedTimeframe) => {
+    const now = new Date().toISOString();
     setBudgetState(amount);
     setTimeframeState(selectedTimeframe);
+    setPeriodStartDate(now);
     setNeedsBudgetSetup(false);
     await Promise.all([
       AsyncStorage.setItem(BUDGET_STORAGE_KEY, String(amount)),
       AsyncStorage.setItem(TIMEFRAME_STORAGE_KEY, JSON.stringify(selectedTimeframe)),
+      AsyncStorage.setItem(PERIOD_START_STORAGE_KEY, now),
     ]);
   }, []);
 
   const spent = transactions.reduce((sum, t) => sum + t.amount, 0);
   const remaining = budget - spent;
   const percentRemaining = budget > 0 ? ((remaining / budget) * 100).toFixed(2) : '0.00';
+  const onTrackProgress = getOnTrackProgress(budget, remaining, timeframe, periodStartDate);
+  const { daysRemaining, totalDays } = getBudgetPeriodDays(timeframe, periodStartDate);
 
   const addTransaction = useCallback((transaction) => {
     setIsAnimating(true);
@@ -139,12 +196,16 @@ export function BudgetProvider({ children }) {
     <BudgetContext.Provider value={{
       budget,
       timeframe,
+      periodStartDate,
       isLoadingBudget,
       needsBudgetSetup,
       setBudgetSetup,
       spent,
       remaining,
       percentRemaining,
+      onTrackProgress,
+      daysRemaining,
+      totalDays,
       transactions,
       pendingTransaction,
       isAnimating,

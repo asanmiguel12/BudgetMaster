@@ -5,7 +5,7 @@ import { View, Animated, Image, StyleSheet, Easing } from 'react-native';
 import MainMoneyStack from '../../assets/MainMoneyStack.png';
 
 
-export default function CashStack({ onRef, percentRemaining = 100 }) {
+export default function CashStack({ onRef, miniOnly = false }) {
   const stackRefs = {
     1: useRef(null),
     5: useRef(null),
@@ -33,6 +33,8 @@ export default function CashStack({ onRef, percentRemaining = 100 }) {
   const idleRock = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (miniOnly) return;
+
     Animated.loop(
       Animated.sequence([
         Animated.timing(idleRock, {
@@ -55,7 +57,7 @@ export default function CashStack({ onRef, percentRemaining = 100 }) {
         }),
       ])
     ).start();
-  }, []);
+  }, [miniOnly]);
 
   const idleRotate = idleRock.interpolate({
     inputRange: [-1, 0, 1],
@@ -64,19 +66,16 @@ export default function CashStack({ onRef, percentRemaining = 100 }) {
 
   return (
     <View style={styles.container}>
+      {!miniOnly && (
+        <Animated.Image
+          source={MainMoneyStack}
+          style={[
+            styles.bigStackImage,
+            { transform: [{ rotateZ: idleRotate }] },
+          ]}
+        />
+      )}
 
-      {/* ⭐ BIG STACK IMAGE */}
-      <Animated.Image
-        source={MainMoneyStack}
-        style={[
-          styles.bigStackImage,
-          {
-            transform: [{ rotateZ: idleRotate }],
-          },
-        ]}
-      />
-
-      {/* ⭐ MINI STACKS */}
       <View style={styles.miniRow}>
         <MiniStack ref={stackRefs[1]} />
         <MiniStack ref={stackRefs[5]} />
