@@ -110,13 +110,31 @@ function StackImage({ isGold, width, height, fillRatio = 1 }) {
   if (isGold) {
     return (
       <View style={{ width, height, alignItems: 'center', justifyContent: 'center' }}>
-        <Animated.Image
-          source={GoldenMoneyStack}
+        <Animated.View
           style={[
-            { width: imageWidth, height: imageHeight, resizeMode: 'contain' },
+            { width: imageWidth, height: imageHeight },
             { transform: [{ rotateZ: idleRotate }] },
           ]}
-        />
+        >
+          <Animated.Image
+            source={GoldenMoneyStack}
+            style={[styles.stackSilhouette, styles.goldStackSilhouette, { width: imageWidth, height: imageHeight }]}
+          />
+          <Animated.View style={[styles.colorClip, { width: imageWidth, height: clipHeight }]}>
+            <Animated.Image
+              source={GoldenMoneyStack}
+              style={[
+                styles.stackColor,
+                {
+                  width: imageWidth,
+                  height: imageHeight,
+                  bottom: 0,
+                  left: 0,
+                },
+              ]}
+            />
+          </Animated.View>
+        </Animated.View>
       </View>
     );
   }
@@ -155,6 +173,7 @@ function StackImage({ isGold, width, height, fillRatio = 1 }) {
 function MetricColumn({
   label,
   heroValue,
+  footerLabel,
   footerValue,
   footerColor,
   heroColor,
@@ -195,6 +214,9 @@ function MetricColumn({
       </View>
 
       <View style={styles.whiteSection}>
+        {footerLabel ? (
+          <Text style={[styles.footerLabel, { fontSize: layout.footerLabelSize }]}>{footerLabel}</Text>
+        ) : null}
         <Text style={[styles.footerValue, { fontSize: layout.footerSize, color: footerColor }]}>
           {footerValue}
         </Text>
@@ -215,6 +237,7 @@ export default function BudgetDualCard({ remaining, onTrackProgress, budget }) {
     return {
       labelSize: Math.round(13 * scale),
       heroSize: Math.round(32 * scale),
+      footerLabelSize: Math.round(12 * scale),
       footerSize: Math.round(26 * scale),
       stackWidth: Math.round(160 * scale),
       stackHeight: Math.round(110 * scale),
@@ -227,14 +250,20 @@ export default function BudgetDualCard({ remaining, onTrackProgress, budget }) {
   const onTrackRounded = Math.round(onTrackProgress);
   const onTrackLabel = `${onTrackRounded}%`;
   const isHighScore = onTrackRounded >= GOLD_THRESHOLD;
+  const onTrackFillRatio = Math.max(0, Math.min(1, onTrackProgress / 100));
 
-  const remainingFormatted = `$${remaining.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+  const formatCurrency = (amount) =>
+    `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+
+  const budgetFormatted = formatCurrency(budget);
+  const remainingFormatted = formatCurrency(remaining);
 
   return (
     <View style={[styles.card, { minHeight: cardHeight }]}>
       <MetricColumn
-        label="Remaining Budget"
-        heroValue={remainingFormatted}
+        label="Overall Budget"
+        heroValue={budgetFormatted}
+        footerLabel="Remaining"
         footerValue={remainingFormatted}
         footerColor="#1a6fd4"
         isGold={false}
@@ -255,6 +284,7 @@ export default function BudgetDualCard({ remaining, onTrackProgress, budget }) {
         isGold
         showSparkles
         intenseSparkles={isHighScore}
+        budgetFillRatio={onTrackFillRatio}
         layout={layout}
       />
     </View>
@@ -331,6 +361,11 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
 
+  goldStackSilhouette: {
+    tintColor: '#C4A855',
+    opacity: 0.45,
+  },
+
   colorClip: {
     position: 'absolute',
     bottom: 0,
@@ -359,6 +394,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
+  },
+
+  footerLabel: {
+    color: '#888',
+    fontWeight: '500',
+    marginBottom: 4,
   },
 
   footerValue: {
