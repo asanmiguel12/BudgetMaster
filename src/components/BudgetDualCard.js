@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Animated, Easing, useWindowDimensions } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Animated, Easing, useWindowDimensions } from 'react-native';
 import MainMoneyStack from '../../assets/MainMoneyStack.png';
 import GoldenMoneyStack from '../../assets/GoldenMoneyStack.png';
 import EditPencil from './EditPencil';
@@ -242,7 +242,10 @@ function MetricColumn({
         </View>
       </View>
 
-      <View style={[styles.whiteSection, { minHeight: layout.whiteSectionHeight }]}>
+      <View style={[styles.whiteSection, {
+        minHeight: layout.whiteSectionHeight,
+        paddingVertical: layout.whitePaddingVertical,
+      }]}>
         {footerLabel ? (
           <Text style={[styles.footerLabel, { fontSize: layout.footerLabelSize }]}>{footerLabel}</Text>
         ) : null}
@@ -268,10 +271,10 @@ function MetricColumn({
 }
 
 export default function BudgetDualCard({ remaining, onTrackProgress, budget }) {
-  const { updateBudget } = useBudget();
+  const { budgetName, updateBudget, updateBudgetName } = useBudget();
   const [budgetEditVisible, setBudgetEditVisible] = useState(false);
   const { height: screenHeight } = useWindowDimensions();
-  const cardHeight = screenHeight * 0.442;
+  const cardHeight = screenHeight * 0.442 * 0.9;
   const budgetFillRatio = budget > 0
     ? Math.max(0, Math.min(1, remaining / budget))
     : 1;
@@ -289,7 +292,10 @@ export default function BudgetDualCard({ remaining, onTrackProgress, budget }) {
       stackOverlap: Math.round(-48 * scale),
       bluePaddingBottom: Math.round(52 * scale),
       blueSectionHeight: Math.round(cardHeight * 0.38),
-      whiteSectionHeight: Math.round(cardHeight * 0.22),
+      whiteSectionHeight: Math.round(cardHeight * 0.22 * 0.9),
+      whitePaddingVertical: Math.round(16 * scale * 0.9),
+      cardBottomGap: Math.round(cardHeight * 0.022),
+      dividerHeight: Math.round(cardHeight * 0.9),
       editIconSize: Math.round(10 * scale),
     };
   }, [cardHeight]);
@@ -308,7 +314,21 @@ export default function BudgetDualCard({ remaining, onTrackProgress, budget }) {
 
   return (
     <>
-      <View style={[styles.card, { minHeight: cardHeight }]}>
+      <View style={styles.nameHeader}>
+        <TextInput
+          style={styles.budgetNameInput}
+          value={budgetName}
+          onChangeText={updateBudgetName}
+          onEndEditing={() => updateBudgetName(budgetName.trim())}
+          placeholder="Name your budget"
+          placeholderTextColor="#aaa"
+          maxLength={40}
+          returnKeyType="done"
+          autoCorrect={false}
+        />
+      </View>
+
+      <View style={[styles.card, { minHeight: cardHeight, marginBottom: -layout.cardBottomGap }]}>
         <MetricColumn
           label="Overall Budget"
           heroValue={budgetFormatted}
@@ -323,7 +343,7 @@ export default function BudgetDualCard({ remaining, onTrackProgress, budget }) {
           layout={layout}
         />
 
-      <View style={styles.divider} />
+      <View style={[styles.divider, { height: layout.dividerHeight }]} />
 
       <MetricColumn
         label="On-Track Progress"
@@ -351,10 +371,27 @@ export default function BudgetDualCard({ remaining, onTrackProgress, budget }) {
 }
 
 const styles = StyleSheet.create({
+  nameHeader: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    alignItems: 'flex-end',
+  },
+
+  budgetNameInput: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#444',
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+    textAlign: 'right',
+    minWidth: 160,
+  },
+
   card: {
     flexDirection: 'row',
     marginHorizontal: 16,
-    marginTop: 12,
+    marginTop: 4,
     borderRadius: 20,
     overflow: 'hidden',
     backgroundColor: '#fff',
@@ -459,7 +496,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
   },
 
   footerLabel: {
@@ -483,7 +519,7 @@ const styles = StyleSheet.create({
 
   divider: {
     width: 1,
-    alignSelf: 'stretch',
+    alignSelf: 'center',
     backgroundColor: '#dce8f5',
   },
 });

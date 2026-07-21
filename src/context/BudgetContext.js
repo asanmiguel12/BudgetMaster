@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const BudgetContext = createContext();
 
 const BUDGET_STORAGE_KEY = '@mybudget/budget';
+const BUDGET_NAME_STORAGE_KEY = '@mybudget/budgetName';
 const TIMEFRAME_STORAGE_KEY = '@mybudget/timeframe';
 const PERIOD_START_STORAGE_KEY = '@mybudget/periodStart';
 
@@ -104,6 +105,7 @@ const INITIAL_TRANSACTIONS = [];
 
 export function BudgetProvider({ children }) {
   const [budget, setBudgetState] = useState(0);
+  const [budgetName, setBudgetNameState] = useState('');
   const [timeframe, setTimeframeState] = useState(null);
   const [periodStartDate, setPeriodStartDate] = useState(null);
   const [isLoadingBudget, setIsLoadingBudget] = useState(true);
@@ -115,9 +117,10 @@ export function BudgetProvider({ children }) {
   useEffect(() => {
     Promise.all([
       AsyncStorage.getItem(BUDGET_STORAGE_KEY),
+      AsyncStorage.getItem(BUDGET_NAME_STORAGE_KEY),
       AsyncStorage.getItem(TIMEFRAME_STORAGE_KEY),
       AsyncStorage.getItem(PERIOD_START_STORAGE_KEY),
-    ]).then(([savedBudget, savedTimeframe, savedPeriodStart]) => {
+    ]).then(([savedBudget, savedBudgetName, savedTimeframe, savedPeriodStart]) => {
       let hasBudget = false;
       let hasTimeframe = false;
 
@@ -127,6 +130,10 @@ export function BudgetProvider({ children }) {
           setBudgetState(parsed);
           hasBudget = true;
         }
+      }
+
+      if (savedBudgetName !== null) {
+        setBudgetNameState(savedBudgetName);
       }
 
       const parsedTimeframe = parseTimeframe(savedTimeframe);
@@ -168,6 +175,11 @@ export function BudgetProvider({ children }) {
     if (isNaN(amount) || amount <= 0) return;
     setBudgetState(amount);
     await AsyncStorage.setItem(BUDGET_STORAGE_KEY, String(amount));
+  }, []);
+
+  const updateBudgetName = useCallback(async (name) => {
+    setBudgetNameState(name);
+    await AsyncStorage.setItem(BUDGET_NAME_STORAGE_KEY, name);
   }, []);
 
   const updateTimeframe = useCallback(async (selectedTimeframe) => {
@@ -216,12 +228,14 @@ export function BudgetProvider({ children }) {
   return (
     <BudgetContext.Provider value={{
       budget,
+      budgetName,
       timeframe,
       periodStartDate,
       isLoadingBudget,
       needsBudgetSetup,
       setBudgetSetup,
       updateBudget,
+      updateBudgetName,
       updateTimeframe,
       spent,
       remaining,

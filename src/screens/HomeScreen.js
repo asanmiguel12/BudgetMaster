@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 
-  cashArea: { paddingHorizontal: 0, paddingTop: 4, paddingBottom: 4 },
+  cashArea: { paddingHorizontal: 0, paddingTop: 3, paddingBottom: 4 },
 
   /* ⭐ NEW ACTIVITY BOX ⭐ */
   activityContainer: {
