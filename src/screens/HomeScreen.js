@@ -5,8 +5,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CashStack from '../components/CashStack';
-import BudgetDualCard from '../components/BudgetDualCard';
+import BudgetCarousel, { AddBudgetButton } from '../components/BudgetCarousel';
 import TimeframeProgressBar from '../components/TimeframeProgressBar';
+import BudgetSetupModal from '../components/BudgetSetupModal';
 import { useBudget, getOnTrackProgressForDaysRemaining } from '../context/BudgetContext';
 
 function TransactionRow({ transaction }) {
@@ -51,11 +52,12 @@ export default function HomeScreen({ navigation }) {
     budget, remaining, timeframe,
     daysRemaining, totalDays,
     transactions, pendingTransaction, isAnimating,
-    simulateBankNotification,
+    simulateBankNotification, addBudget,
   } = useBudget();
 
   const actualDaysElapsed = Math.max(0, totalDays - daysRemaining);
   const [previewDaysElapsed, setPreviewDaysElapsed] = useState(null);
+  const [showAddBudget, setShowAddBudget] = useState(false);
 
   const displayOnTrackProgress = useMemo(() => {
     const elapsed = previewDaysElapsed ?? actualDaysElapsed;
@@ -104,13 +106,24 @@ export default function HomeScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 140 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        directionalLockEnabled
+        contentContainerStyle={{ paddingBottom: 140 }}
+      >
 
-        {/* Dual metric card with cash stacks */}
-        <BudgetDualCard
-          remaining={remaining}
-          onTrackProgress={displayOnTrackProgress}
-          budget={budget}
+        {/* Swipeable budget cards */}
+        <BudgetCarousel
+          previewDaysElapsed={previewDaysElapsed}
+          onPreviewDaysElapsedChange={setPreviewDaysElapsed}
+        />
+        <AddBudgetButton onPress={() => setShowAddBudget(true)} />
+
+        <BudgetSetupModal
+          visible={showAddBudget}
+          title="Add a budget"
+          onComplete={(amount, selectedTimeframe) => addBudget(amount, selectedTimeframe)}
+          onClose={() => setShowAddBudget(false)}
         />
 
         {/* Deducting label */}

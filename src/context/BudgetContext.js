@@ -1,8 +1,12 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BudgetContext = createContext();
 
+const BUDGETS_STORAGE_KEY = '@mybudget/budgets';
+const ACTIVE_BUDGET_INDEX_KEY = '@mybudget/activeBudgetIndex';
+
+// Legacy keys (migrated into budgets array)
 const BUDGET_STORAGE_KEY = '@mybudget/budget';
 const BUDGET_NAME_STORAGE_KEY = '@mybudget/budgetName';
 const TIMEFRAME_STORAGE_KEY = '@mybudget/timeframe';
@@ -101,114 +105,255 @@ export function getOnTrackProgress(budget, remaining, timeframe, periodStartDate
   return getOnTrackProgressForDaysRemaining(budget, remaining, totalDays, daysRemaining);
 }
 
-const INITIAL_TRANSACTIONS = [];
+export function getBudgetMetrics(budgetItem) {
+  if (!budgetItem) {
+    return {
+      spent: 0,
+      remaining: 0,
+      percentRemaining: '0.00',
+      onTrackProgress: 100,
+      daysRemaining: 0,
+      totalDays: 0,
+    };
+  }
+
+  const spent = (budgetItem.transactions || []).reduce((sum, t) => sum + t.amount, 0);
+  const remaining = budgetItem.amount - spent;
+  const percentRemaining = budgetItem.amount > 0
+    ? ((remaining / budgetItem.amount) * 100).toFixed(2)
+    : '0.00';
+  const onTrackProgress = getOnTrackProgress(
+    budgetItem.amount,
+    remaining,
+    budgetItem.timeframe,
+    budgetItem.periodStartDate,
+  );
+  const { daysRemaining, totalDays } = getBudgetPeriodDays(
+    budgetItem.timeframe,
+    budgetItem.periodStartDate,
+  );
+
+  return { spent, remaining, percentRemaining, onTrackProgress, daysRemaining, totalDays };
+}
+
+function createBudgetId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+export function createBudget({ amount, timeframe, name = '', periodStartDate }) {
+  return {
+    id: createBudgetId(),
+    name,
+    amount,
+    timeframe,
+    periodStartDate: periodStartDate || new Date().toISOString(),
+    transactions: [],
+  };
+}
+
+function serializeBudgets(budgets) {
+  return JSON.stringify(
+    budgets.map((b) => ({
+      ...b,
+      transactions: (b.transactions || []).map((tx) => ({
+        ...tx,
+        date: tx.date instanceof Date ? tx.date.toISOString() : tx.date,
+      })),
+    })),
+  );
+}
+
+function deserializeBudgets(raw) {
+  const parsed = JSON.parse(raw);
+  if (!Array.isArray(parsed)) return [];
+  return parsed.map((b) => ({
+    ...b,
+    transactions: (b.transactions || []).map((tx) => ({
+      ...tx,
+      date: new Date(tx.date),
+    })),
+  }));
+}
+
+async function loadBudgetsFromStorage() {
+  const savedBudgets = await AsyncStorage.getItem(BUDGETS_STORAGE_KEY);
+  if (savedBudgets) {
+    try {
+      return deserializeBudgets(savedBudgets);
+    } catch {
+      return [];
+    }
+  }
+
+  const [savedBudget, savedBudgetName, savedTimeframe, savedPeriodStart] = await Promise.all([
+    AsyncStorage.getItem(BUDGET_STORAGE_KEY),
+    AsyncStorage.getItem(BUDGET_NAME_STORAGE_KEY),
+    AsyncStorage.getItem(TIMEFRAME_STORAGE_KEY),
+    AsyncStorage.getItem(PERIOD_START_STORAGE_KEY),
+  ]);
+
+  const parsedAmount = savedBudget !== null ? parseFloat(savedBudget) : NaN;
+  const parsedTimeframe = parseTimeframe(savedTimeframe);
+
+  if (!isNaN(parsedAmount) && parsedAmount > 0 && isValidTimeframe(parsedTimeframe)) {
+    const periodStart = savedPeriodStart && !isNaN(new Date(savedPeriodStart).getTime())
+      ? savedPeriodStart
+      : new Date().toISOString();
+
+    return [createBudget({
+      amount: parsedAmount,
+      timeframe: parsedTimeframe,
+      name: savedBudgetName || '',
+      periodStartDate: periodStart,
+    })];
+  }
+
+  return [];
+}
 
 export function BudgetProvider({ children }) {
-  const [budget, setBudgetState] = useState(0);
-  const [budgetName, setBudgetNameState] = useState('');
-  const [timeframe, setTimeframeState] = useState(null);
-  const [periodStartDate, setPeriodStartDate] = useState(null);
+  const [budgets, setBudgetsState] = useState([]);
+  const [activeBudgetIndex, setActiveBudgetIndexState] = useState(0);
   const [isLoadingBudget, setIsLoadingBudget] = useState(true);
   const [needsBudgetSetup, setNeedsBudgetSetup] = useState(false);
-  const [transactions, setTransactions] = useState(INITIAL_TRANSACTIONS);
   const [pendingTransaction, setPendingTransaction] = useState(null);
   const [isAnimating, setIsAnimating] = useState(false);
+  const activeBudgetIndexRef = useRef(0);
+
+  const persistBudgets = useCallback(async (nextBudgets, nextIndex = activeBudgetIndex) => {
+    await Promise.all([
+      AsyncStorage.setItem(BUDGETS_STORAGE_KEY, serializeBudgets(nextBudgets)),
+      AsyncStorage.setItem(ACTIVE_BUDGET_INDEX_KEY, String(nextIndex)),
+    ]);
+  }, [activeBudgetIndex]);
+
+  const updateBudgets = useCallback((updater, nextIndex) => {
+    setBudgetsState((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      const index = nextIndex ?? activeBudgetIndexRef.current;
+      persistBudgets(next, index);
+      return next;
+    });
+  }, [persistBudgets]);
 
   useEffect(() => {
     Promise.all([
-      AsyncStorage.getItem(BUDGET_STORAGE_KEY),
-      AsyncStorage.getItem(BUDGET_NAME_STORAGE_KEY),
-      AsyncStorage.getItem(TIMEFRAME_STORAGE_KEY),
-      AsyncStorage.getItem(PERIOD_START_STORAGE_KEY),
-    ]).then(([savedBudget, savedBudgetName, savedTimeframe, savedPeriodStart]) => {
-      let hasBudget = false;
-      let hasTimeframe = false;
+      loadBudgetsFromStorage(),
+      AsyncStorage.getItem(ACTIVE_BUDGET_INDEX_KEY),
+    ]).then(([loadedBudgets, savedIndex]) => {
+      const parsedIndex = savedIndex !== null ? parseInt(savedIndex, 10) : 0;
+      const safeIndex = loadedBudgets.length > 0
+        ? Math.min(Math.max(0, parsedIndex), loadedBudgets.length - 1)
+        : 0;
 
-      if (savedBudget !== null) {
-        const parsed = parseFloat(savedBudget);
-        if (!isNaN(parsed) && parsed > 0) {
-          setBudgetState(parsed);
-          hasBudget = true;
-        }
-      }
-
-      if (savedBudgetName !== null) {
-        setBudgetNameState(savedBudgetName);
-      }
-
-      const parsedTimeframe = parseTimeframe(savedTimeframe);
-      if (isValidTimeframe(parsedTimeframe)) {
-        setTimeframeState(parsedTimeframe);
-        hasTimeframe = true;
-      }
-
-      if (savedPeriodStart) {
-        const parsedStart = new Date(savedPeriodStart);
-        if (!isNaN(parsedStart.getTime())) {
-          setPeriodStartDate(parsedStart.toISOString());
-        }
-      } else if (hasBudget && hasTimeframe) {
-        const now = new Date().toISOString();
-        setPeriodStartDate(now);
-        AsyncStorage.setItem(PERIOD_START_STORAGE_KEY, now);
-      }
-
-      setNeedsBudgetSetup(!hasBudget || !hasTimeframe);
+      setBudgetsState(loadedBudgets);
+      setActiveBudgetIndexState(safeIndex);
+      setNeedsBudgetSetup(loadedBudgets.length === 0);
       setIsLoadingBudget(false);
+
+      if (loadedBudgets.length > 0) {
+        persistBudgets(loadedBudgets, safeIndex);
+      }
     });
   }, []);
 
+  const setActiveBudgetIndex = useCallback((index) => {
+    const clamped = budgets.length > 0
+      ? Math.max(0, Math.min(index, budgets.length - 1))
+      : 0;
+    setActiveBudgetIndexState(clamped);
+    activeBudgetIndexRef.current = clamped;
+    AsyncStorage.setItem(ACTIVE_BUDGET_INDEX_KEY, String(clamped));
+  }, [budgets.length]);
+
+  const activeBudget = budgets[activeBudgetIndex] ?? null;
+
+  useEffect(() => {
+    activeBudgetIndexRef.current = activeBudgetIndex;
+  }, [activeBudgetIndex]);
+
+  const activeMetrics = useMemo(() => getBudgetMetrics(activeBudget), [activeBudget]);
+
   const setBudgetSetup = useCallback(async (amount, selectedTimeframe) => {
     const now = new Date().toISOString();
-    setBudgetState(amount);
-    setTimeframeState(selectedTimeframe);
-    setPeriodStartDate(now);
+    const newBudget = createBudget({
+      amount,
+      timeframe: selectedTimeframe,
+      periodStartDate: now,
+    });
+    setBudgetsState([newBudget]);
+    setActiveBudgetIndexState(0);
     setNeedsBudgetSetup(false);
-    await Promise.all([
-      AsyncStorage.setItem(BUDGET_STORAGE_KEY, String(amount)),
-      AsyncStorage.setItem(TIMEFRAME_STORAGE_KEY, JSON.stringify(selectedTimeframe)),
-      AsyncStorage.setItem(PERIOD_START_STORAGE_KEY, now),
-    ]);
-  }, []);
+    await persistBudgets([newBudget], 0);
+  }, [persistBudgets]);
+
+  const addBudget = useCallback(async (amount, selectedTimeframe, name = '') => {
+    const now = new Date().toISOString();
+    const newBudget = createBudget({
+      amount,
+      timeframe: selectedTimeframe,
+      name,
+      periodStartDate: now,
+    });
+    setBudgetsState((prev) => {
+      const next = [...prev, newBudget];
+      const nextIndex = next.length - 1;
+      setActiveBudgetIndexState(nextIndex);
+      persistBudgets(next, nextIndex);
+      return next;
+    });
+    setNeedsBudgetSetup(false);
+    return newBudget;
+  }, [persistBudgets]);
+
+  const updateActiveBudget = useCallback((patch) => {
+    if (!activeBudget) return;
+    updateBudgets((prev) =>
+      prev.map((b, i) => (i === activeBudgetIndex ? { ...b, ...patch } : b)),
+    );
+  }, [activeBudget, activeBudgetIndex, updateBudgets]);
 
   const updateBudget = useCallback(async (amount) => {
     if (isNaN(amount) || amount <= 0) return;
-    setBudgetState(amount);
-    await AsyncStorage.setItem(BUDGET_STORAGE_KEY, String(amount));
-  }, []);
+    updateActiveBudget({ amount });
+  }, [updateActiveBudget]);
 
   const updateBudgetName = useCallback(async (name) => {
-    setBudgetNameState(name);
-    await AsyncStorage.setItem(BUDGET_NAME_STORAGE_KEY, name);
-  }, []);
+    updateActiveBudget({ name });
+  }, [updateActiveBudget]);
 
   const updateTimeframe = useCallback(async (selectedTimeframe) => {
     if (!isValidTimeframe(selectedTimeframe)) return;
-    const now = new Date().toISOString();
-    setTimeframeState(selectedTimeframe);
-    setPeriodStartDate(now);
-    await Promise.all([
-      AsyncStorage.setItem(TIMEFRAME_STORAGE_KEY, JSON.stringify(selectedTimeframe)),
-      AsyncStorage.setItem(PERIOD_START_STORAGE_KEY, now),
-    ]);
-  }, []);
+    updateActiveBudget({
+      timeframe: selectedTimeframe,
+      periodStartDate: new Date().toISOString(),
+    });
+  }, [updateActiveBudget]);
 
-  const spent = transactions.reduce((sum, t) => sum + t.amount, 0);
-  const remaining = budget - spent;
-  const percentRemaining = budget > 0 ? ((remaining / budget) * 100).toFixed(2) : '0.00';
-  const onTrackProgress = getOnTrackProgress(budget, remaining, timeframe, periodStartDate);
-  const { daysRemaining, totalDays } = getBudgetPeriodDays(timeframe, periodStartDate);
+  const updateBudgetById = useCallback((budgetId, patch) => {
+    updateBudgets((prev) =>
+      prev.map((b) => (b.id === budgetId ? { ...b, ...patch } : b)),
+    );
+  }, [updateBudgets]);
 
   const addTransaction = useCallback((transaction) => {
+    const indexAtCall = activeBudgetIndexRef.current;
     setIsAnimating(true);
     setPendingTransaction(transaction);
 
     setTimeout(() => {
-      setTransactions(prev => [transaction, ...prev]);
+      updateBudgets((prev) =>
+        prev.map((b, i) =>
+          i === indexAtCall
+            ? { ...b, transactions: [transaction, ...(b.transactions || [])] }
+            : b,
+        ),
+        indexAtCall,
+      );
       setPendingTransaction(null);
       setIsAnimating(false);
     }, 2000);
-  }, []);
+  }, [updateBudgets]);
 
   const simulateBankNotification = useCallback(() => {
     const randomAmount = Math.floor(Math.random() * 40) + 1;
@@ -225,8 +370,18 @@ export function BudgetProvider({ children }) {
     return newTx;
   }, [addTransaction]);
 
+  const budget = activeBudget?.amount ?? 0;
+  const budgetName = activeBudget?.name ?? '';
+  const timeframe = activeBudget?.timeframe ?? null;
+  const periodStartDate = activeBudget?.periodStartDate ?? null;
+  const transactions = activeBudget?.transactions ?? [];
+
   return (
     <BudgetContext.Provider value={{
+      budgets,
+      activeBudgetIndex,
+      activeBudget,
+      setActiveBudgetIndex,
       budget,
       budgetName,
       timeframe,
@@ -234,15 +389,18 @@ export function BudgetProvider({ children }) {
       isLoadingBudget,
       needsBudgetSetup,
       setBudgetSetup,
+      addBudget,
       updateBudget,
       updateBudgetName,
+      updateBudgetById,
       updateTimeframe,
-      spent,
-      remaining,
-      percentRemaining,
-      onTrackProgress,
-      daysRemaining,
-      totalDays,
+      spent: activeMetrics.spent,
+      remaining: activeMetrics.remaining,
+      percentRemaining: activeMetrics.percentRemaining,
+      onTrackProgress: activeMetrics.onTrackProgress,
+      daysRemaining: activeMetrics.daysRemaining,
+      totalDays: activeMetrics.totalDays,
+      getBudgetMetrics,
       transactions,
       pendingTransaction,
       isAnimating,

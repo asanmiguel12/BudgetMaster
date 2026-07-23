@@ -15,8 +15,9 @@ import { useBudget, TIME_UNITS, formatTimeframe, formatTimeframePeriod } from '.
 
 const UNIT_OPTIONS = Object.entries(TIME_UNITS).map(([id, { label }]) => ({ id, label }));
 
-export default function BudgetSetupModal() {
-  const { setBudgetSetup } = useBudget();
+export default function BudgetSetupModal({ visible, onComplete, onClose, title }) {
+  const { needsBudgetSetup, setBudgetSetup } = useBudget();
+  const isVisible = visible ?? needsBudgetSetup;
   const [step, setStep] = useState('timeframe');
   const [unit, setUnit] = useState('months');
   const [duration, setDuration] = useState(1);
@@ -43,15 +44,26 @@ export default function BudgetSetupModal() {
 
   const handleSubmit = () => {
     if (isValidBudget) {
-      setBudgetSetup(parsed, { unit, duration: Math.round(duration) });
+      const tf = { unit, duration: Math.round(duration) };
+      if (onComplete) {
+        onComplete(parsed, tf);
+        onClose?.();
+      } else {
+        setBudgetSetup(parsed, tf);
+      }
     }
   };
 
+  if (!isVisible) return null;
+
   return (
-    <Modal visible animationType="fade" transparent statusBarTranslucent>
+    <Modal visible={isVisible} animationType="fade" transparent statusBarTranslucent onRequestClose={onClose}>
       <Pressable
         style={styles.overlay}
-        onPress={() => dropdownOpen && setDropdownOpen(false)}
+        onPress={() => {
+          if (dropdownOpen) setDropdownOpen(false);
+          else if (onClose) onClose();
+        }}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -59,7 +71,7 @@ export default function BudgetSetupModal() {
           <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
             {step === 'timeframe' ? (
               <>
-                <Text style={styles.title}>Choose your budget timeframe</Text>
+                <Text style={styles.title}>{title || 'Choose your budget timeframe'}</Text>
                 <Text style={styles.subtitle}>
                   Pick a unit and slide to set the duration.
                 </Text>
@@ -119,7 +131,7 @@ export default function BudgetSetupModal() {
                   <Text style={styles.backText}>‹ Back</Text>
                 </TouchableOpacity>
 
-                <Text style={styles.title}>Set your budget</Text>
+                <Text style={styles.title}>{title ? 'Set budget amount' : 'Set your budget'}</Text>
                 <Text style={styles.subtitle}>
                   How much do you want to spend over the next {formatTimeframePeriod(timeframe)}?
                 </Text>

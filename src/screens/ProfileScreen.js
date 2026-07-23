@@ -4,8 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBudget, formatTimeframe } from '../context/BudgetContext';
 
 export default function ProfileScreen() {
-  const { budget, timeframe } = useBudget();
+  const { budget, timeframe, budgetName } = useBudget();
   const timeframeLabel = formatTimeframe(timeframe) || 'Monthly';
+  const budgetLabel = budgetName || timeframeLabel;
   const [notifications, setNotifications] = React.useState(true);
   const [bankSync, setBankSync] = React.useState(true);
   const [weeklyReport, setWeeklyReport] = React.useState(false);
@@ -36,7 +37,7 @@ export default function ProfileScreen() {
             <TouchableOpacity style={styles.settingRow}>
               <Text style={styles.settingIcon}>💰</Text>
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>{timeframeLabel} Budget</Text>
+                <Text style={styles.settingLabel}>{budgetLabel}</Text>
                 <Text style={styles.settingValue}>
                   ${budget.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                 </Text>

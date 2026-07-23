@@ -270,8 +270,19 @@ function MetricColumn({
   );
 }
 
-export default function BudgetDualCard({ remaining, onTrackProgress, budget }) {
-  const { budgetName, updateBudget, updateBudgetName } = useBudget();
+export default function BudgetDualCard({
+  remaining,
+  onTrackProgress,
+  budget,
+  budgetName: budgetNameProp,
+  onUpdateBudget: onUpdateBudgetProp,
+  onUpdateBudgetName: onUpdateBudgetNameProp,
+  isActive = true,
+}) {
+  const context = useBudget();
+  const budgetName = budgetNameProp ?? context.budgetName;
+  const updateBudget = onUpdateBudgetProp ?? context.updateBudget;
+  const updateBudgetName = onUpdateBudgetNameProp ?? context.updateBudgetName;
   const [budgetEditVisible, setBudgetEditVisible] = useState(false);
   const { height: screenHeight } = useWindowDimensions();
   const cardHeight = screenHeight * 0.442 * 0.9;
@@ -339,7 +350,7 @@ export default function BudgetDualCard({ remaining, onTrackProgress, budget }) {
           showSparkles={false}
           intenseSparkles={false}
           budgetFillRatio={budgetFillRatio}
-          onEditHero={() => setBudgetEditVisible(true)}
+          onEditHero={isActive ? () => setBudgetEditVisible(true) : undefined}
           layout={layout}
         />
 
@@ -361,7 +372,7 @@ export default function BudgetDualCard({ remaining, onTrackProgress, budget }) {
       </View>
 
       <EditBudgetModal
-        visible={budgetEditVisible}
+        visible={budgetEditVisible && isActive}
         initialAmount={budget}
         onSave={updateBudget}
         onClose={() => setBudgetEditVisible(false)}
