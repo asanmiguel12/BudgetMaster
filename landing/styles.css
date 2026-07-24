@@ -381,57 +381,25 @@ a {
   margin-bottom: 1.5rem;
 }
 
-.video-placeholder {
+.demo-video-wrap {
   display: flex;
-  flex-direction: column;
-  align-items: center;
   justify-content: center;
-  min-height: 280px;
-  padding: 2rem;
-  text-align: center;
-  background: linear-gradient(135deg, var(--blue-light) 0%, #fff 100%);
+  padding: 2rem 1.5rem 2.5rem;
+  background: linear-gradient(180deg, var(--blue-light) 0%, #fff 100%);
 }
 
-.play-ring {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: var(--blue);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.25rem;
-  margin-bottom: 1rem;
-  box-shadow: 0 8px 24px rgba(26, 111, 212, 0.4);
-}
-
-.video-placeholder .muted {
-  color: var(--text-muted);
-  font-size: 0.9rem;
-  max-width: 420px;
-}
-
-.video-placeholder code {
-  background: rgba(0, 0, 0, 0.06);
-  padding: 0.15rem 0.4rem;
-  border-radius: 4px;
-  font-size: 0.85em;
-}
-
-.video-embed {
-  position: relative;
-  padding-bottom: 56.25%;
-  height: 0;
-}
-
-.video-embed iframe {
-  position: absolute;
-  top: 0;
-  left: 0;
+.demo-phone {
+  max-width: 320px;
   width: 100%;
-  height: 100%;
-  border: 0;
+}
+
+.demo-video {
+  width: 100%;
+  display: block;
+  border-radius: 28px;
+  background: #000;
+  aspect-ratio: 9 / 19.5;
+  object-fit: cover;
 }
 
 .demo-steps {

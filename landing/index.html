@@ -124,23 +124,21 @@ onTrackProgress   = (remaining / expectedRemaining) × 100</code></pre>
           <p>See the simulate-bank-notification flow and cash-stack animation in action.</p>
         </div>
         <div class="demo-card">
-          <!-- Replace the src below with your YouTube, Loom, or Cloudinary video embed URL -->
-          <div class="video-placeholder" id="video-placeholder">
-            <div class="play-ring">▶</div>
-            <p><strong>Add your demo video</strong></p>
-            <p class="muted">Record a 30–60s screen capture, upload to YouTube or Loom, then paste the embed URL in <code>index.html</code>.</p>
-            <a class="btn btn-secondary btn-sm" href="assets/home-screen.png" target="_blank">View screenshot</a>
+          <div class="demo-video-wrap">
+            <div class="phone-frame demo-phone">
+              <video
+                class="demo-video"
+                controls
+                playsinline
+                preload="metadata"
+                poster="assets/home-screen.png"
+                aria-label="Budget Master app demo — budget setup, bank notification simulation, and dashboard"
+              >
+                <source src="assets/budget-master-quick-flow.mov" type="video/quicktime" />
+                Your browser does not support embedded video. <a href="assets/budget-master-quick-flow.mov">Download the demo</a>.
+              </video>
+            </div>
           </div>
-          <!-- Example embed (uncomment and replace VIDEO_ID):
-          <div class="video-embed">
-            <iframe
-              src="https://www.youtube.com/embed/VIDEO_ID"
-              title="Budget Master demo"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowfullscreen
-            ></iframe>
-          </div>
-          -->
         </div>
         <ol class="demo-steps">
           <li>Tap <strong>Simulate Bank Notification</strong> on Home</li>

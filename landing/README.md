@@ -9,7 +9,7 @@ This folder is a **static project page** for recruiters and portfolio visitors �
 - Hero with app screenshot and tech stack
 - Feature highlights
 - On-track progress formula
-- Demo video placeholder (add your YouTube/Loom embed)
+- **App demo video** (`assets/budget-master-quick-flow.mov`) in a phone frame
 - Architecture overview
 - GitHub link
 
@@ -42,24 +42,9 @@ vercel --prod
 
 In Vercel → Project → Settings → Domains, add e.g. `budgetmaster.vercel.app` or your own domain.
 
-## Add a demo video
+## Demo video
 
-1. Record a 30–60s screen capture on your iPhone or Simulator (Simulate Bank Notification flow)
-2. Upload to [YouTube](https://youtube.com) (unlisted) or [Loom](https://loom.com)
-3. In `index.html`, find the demo section and replace the placeholder with:
-
-```html
-<div class="video-embed">
-  <iframe
-    src="https://www.youtube.com/embed/YOUR_VIDEO_ID"
-    title="Budget Master demo"
-    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-    allowfullscreen
-  ></iframe>
-</div>
-```
-
-Remove the `video-placeholder` div when the embed is live.
+The demo section plays `assets/budget-master-quick-flow.mov` (screen recording of the full app flow). For maximum browser support on Windows Chrome/Firefox, optionally convert to MP4 with ffmpeg and add a second `<source type="video/mp4">` in `index.html`.
 
 ## Update links
 
