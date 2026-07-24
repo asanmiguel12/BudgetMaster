@@ -376,7 +376,7 @@ a {
 .demo-card {
   background: var(--bg);
   border-radius: var(--radius);
-  overflow: hidden;
+  overflow: visible;
   border: 1px solid var(--border);
   margin-bottom: 1.5rem;
 }
@@ -399,7 +399,7 @@ a {
   border-radius: 28px;
   background: #000;
   aspect-ratio: 9 / 19.5;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .demo-steps {

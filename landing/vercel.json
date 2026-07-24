@@ -1,7 +1,4 @@
 {
-  "buildCommand": "",
-  "outputDirectory": "landing",
-  "framework": null,
   "headers": [
     {
       "source": "/assets/(.*\\.mp4)",
