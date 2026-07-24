@@ -36,6 +36,7 @@ yarn-error.*
 
 # server data
 server/data/budgets.json
+server/data/users.json
 
 # typescript
 *.tsbuildinfo

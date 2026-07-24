@@ -1,6 +1,6 @@
 import { apiRequest } from './client';
 import { deserializeBudgets } from './budgetSerialization';
-import { isApiEnabled } from './config';
+import { canUseRemoteApi } from './config';
 
 function normalizeState(payload) {
   return {
@@ -10,14 +10,14 @@ function normalizeState(payload) {
 }
 
 export async function fetchBudgetState() {
-  if (!isApiEnabled()) return null;
+  if (!canUseRemoteApi()) return null;
 
   const payload = await apiRequest('/api/budgets');
   return normalizeState(payload);
 }
 
 export async function syncBudgetState(budgets, activeBudgetIndex) {
-  if (!isApiEnabled()) return null;
+  if (!canUseRemoteApi()) return null;
 
   const payload = await apiRequest('/api/budgets/sync', {
     method: 'PUT',
@@ -37,7 +37,7 @@ export async function syncBudgetState(budgets, activeBudgetIndex) {
 }
 
 export async function createBudgetOnServer(budget) {
-  if (!isApiEnabled()) return null;
+  if (!canUseRemoteApi()) return null;
 
   const payload = await apiRequest('/api/budgets', {
     method: 'POST',
@@ -48,7 +48,7 @@ export async function createBudgetOnServer(budget) {
 }
 
 export async function updateBudgetOnServer(budgetId, patch) {
-  if (!isApiEnabled()) return null;
+  if (!canUseRemoteApi()) return null;
 
   const payload = await apiRequest(`/api/budgets/${budgetId}`, {
     method: 'PATCH',
@@ -59,7 +59,7 @@ export async function updateBudgetOnServer(budgetId, patch) {
 }
 
 export async function addTransactionOnServer(budgetId, transaction) {
-  if (!isApiEnabled()) return null;
+  if (!canUseRemoteApi()) return null;
 
   const payload = await apiRequest(`/api/budgets/${budgetId}/transactions`, {
     method: 'POST',

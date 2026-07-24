@@ -1,15 +1,27 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBudget, formatTimeframe } from '../context/BudgetContext';
+import { useAuth } from '../context/AuthContext';
+import BankConnectCard from '../components/BankConnectCard';
+import AuthModal from '../components/AuthModal';
 
 export default function ProfileScreen() {
   const { budget, timeframe, budgetName } = useBudget();
+  const { user, isAuthenticated, signOut } = useAuth();
+  const [authVisible, setAuthVisible] = useState(false);
   const timeframeLabel = formatTimeframe(timeframe) || 'Monthly';
   const budgetLabel = budgetName || timeframeLabel;
   const [notifications, setNotifications] = React.useState(true);
   const [bankSync, setBankSync] = React.useState(true);
   const [weeklyReport, setWeeklyReport] = React.useState(false);
+
+  const initials = (user?.full_name || user?.email || 'U')
+    .split(' ')
+    .map(part => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -18,16 +30,26 @@ export default function ProfileScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Avatar */}
         <View style={styles.profileSection}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>JD</Text>
+            <Text style={styles.avatarText}>{initials}</Text>
           </View>
-          <Text style={styles.name}>John Doe</Text>
-          <Text style={styles.email}>john.doe@email.com</Text>
-          <TouchableOpacity style={styles.editBtn}>
-            <Text style={styles.editBtnText}>Edit Profile</Text>
-          </TouchableOpacity>
+          <Text style={styles.name}>{user?.full_name || 'Guest'}</Text>
+          <Text style={styles.email}>{user?.email || 'Sign in to sync across devices'}</Text>
+          {!isAuthenticated ? (
+            <TouchableOpacity style={styles.editBtn} onPress={() => setAuthVisible(true)}>
+              <Text style={styles.editBtnText}>Sign In / Sign Up</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={styles.editBtn} onPress={signOut}>
+              <Text style={styles.editBtnText}>Sign Out</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Bank Connection</Text>
+          <BankConnectCard />
         </View>
 
         {/* Budget settings */}
@@ -113,13 +135,13 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Sign out */}
-        <TouchableOpacity style={styles.signOutBtn}>
-          <Text style={styles.signOutText}>Sign Out</Text>
+        <TouchableOpacity style={styles.signOutBtn} onPress={() => setAuthVisible(true)}>
+          <Text style={styles.signOutText}>{isAuthenticated ? 'Account Settings' : 'Create Account'}</Text>
         </TouchableOpacity>
 
         <View style={{ height: 110 }} />
       </ScrollView>
+      <AuthModal visible={authVisible} onClose={() => setAuthVisible(false)} />
     </SafeAreaView>
   );
 }

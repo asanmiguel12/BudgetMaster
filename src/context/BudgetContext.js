@@ -2,7 +2,8 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { serializeBudgets, deserializeBudgets } from '../api/budgetSerialization';
 import { fetchBudgetState, syncBudgetState } from '../api/budgetApi';
-import { isApiEnabled } from '../api/config';
+import { canUseRemoteApi } from '../api/config';
+import { useAuth } from './AuthContext';
 
 const BudgetContext = createContext();
 
@@ -213,7 +214,7 @@ async function loadBudgetState() {
     : 0;
   const localState = { budgets: localBudgets, activeBudgetIndex: localIndex };
 
-  if (isApiEnabled()) {
+  if (canUseRemoteApi()) {
     try {
       const remoteState = await fetchBudgetState();
       if (remoteState?.budgets?.length > 0) {
@@ -233,6 +234,7 @@ async function loadBudgetState() {
 }
 
 export function BudgetProvider({ children }) {
+  const { user, isAuthReady } = useAuth();
   const [budgets, setBudgetsState] = useState([]);
   const [activeBudgetIndex, setActiveBudgetIndexState] = useState(0);
   const [isLoadingBudget, setIsLoadingBudget] = useState(true);
@@ -248,7 +250,7 @@ export function BudgetProvider({ children }) {
       AsyncStorage.setItem(ACTIVE_BUDGET_INDEX_KEY, String(nextIndex)),
     ]);
 
-    if (isApiEnabled()) {
+    if (canUseRemoteApi()) {
       try {
         await syncBudgetState(nextBudgets, nextIndex);
         setSyncError(null);
@@ -269,7 +271,14 @@ export function BudgetProvider({ children }) {
   }, [persistBudgets]);
 
   useEffect(() => {
+    if (!isAuthReady) return;
+
+    let cancelled = false;
+    setIsLoadingBudget(true);
+
     loadBudgetState().then(({ budgets: loadedBudgets, activeBudgetIndex: safeIndex }) => {
+      if (cancelled) return;
+
       setBudgetsState(loadedBudgets);
       setActiveBudgetIndexState(safeIndex);
       activeBudgetIndexRef.current = safeIndex;
@@ -280,7 +289,11 @@ export function BudgetProvider({ children }) {
         persistBudgets(loadedBudgets, safeIndex);
       }
     });
-  }, []);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthReady, user?.id]);
 
   const setActiveBudgetIndex = useCallback((index) => {
     const clamped = budgets.length > 0
@@ -419,7 +432,7 @@ export function BudgetProvider({ children }) {
       isLoadingBudget,
       needsBudgetSetup,
       syncError,
-      isApiEnabled: isApiEnabled(),
+      isApiEnabled: canUseRemoteApi(),
       setBudgetSetup,
       addBudget,
       updateBudget,

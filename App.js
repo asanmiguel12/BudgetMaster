@@ -3,7 +3,9 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { BudgetProvider, useBudget } from './src/context/BudgetContext';
+import { PlaidProvider } from './src/context/PlaidContext';
 import BudgetSetupModal from './src/components/BudgetSetupModal';
 import FloatingTabBar from './src/components/FloatingTabBar';
 import HomeScreen from './src/screens/HomeScreen';
@@ -15,8 +17,9 @@ const Tab = createBottomTabNavigator();
 
 function AppContent() {
   const { isLoadingBudget, needsBudgetSetup } = useBudget();
+  const { isAuthReady } = useAuth();
 
-  if (isLoadingBudget) {
+  if (!isAuthReady || isLoadingBudget) {
     return null;
   }
 
@@ -50,9 +53,13 @@ function AppContent() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <BudgetProvider>
-        <AppContent />
-      </BudgetProvider>
+      <AuthProvider>
+        <PlaidProvider>
+          <BudgetProvider>
+            <AppContent />
+          </BudgetProvider>
+        </PlaidProvider>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

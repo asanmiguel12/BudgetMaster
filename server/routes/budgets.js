@@ -4,7 +4,7 @@ const { getUserState, setUserState } = require('../store');
 const router = express.Router();
 
 function getUserId(req) {
-  return req.headers['x-user-id'] || 'demo';
+  return req.user?.id;
 }
 
 function clampActiveIndex(budgets, index) {

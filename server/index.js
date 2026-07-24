@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const budgetsRouter = require('./routes/budgets');
+const authRouter = require('./routes/auth');
+const requireAuth = require('./middleware/requireAuth');
 
 const PORT = process.env.PORT || 3001;
 const app = express();
@@ -12,7 +14,11 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
-app.use('/api/budgets', budgetsRouter);
+app.use('/api/auth', authRouter);
+app.get('/api/auth/me', requireAuth, (req, res) => {
+  res.json({ user: req.user });
+});
+app.use('/api/budgets', requireAuth, budgetsRouter);
 
 app.use((err, _req, res, _next) => {
   console.error(err);

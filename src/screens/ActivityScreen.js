@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBudget } from '../context/BudgetContext';
+import { usePlaid } from '../context/PlaidContext';
+import { useAuth } from '../context/AuthContext';
 
 const CATEGORY_ICONS = {
   coffee: '☕',
@@ -14,7 +16,7 @@ const CATEGORY_ICONS = {
 function GroupedTransactions({ transactions }) {
   const grouped = transactions.reduce((acc, tx) => {
     const dateKey = tx.date.toLocaleDateString('en-US', {
-      weekday: 'long', month: 'long', day: 'numeric'
+      weekday: 'long', month: 'long', day: 'numeric',
     });
     if (!acc[dateKey]) acc[dateKey] = [];
     acc[dateKey].push(tx);
@@ -33,10 +35,15 @@ function GroupedTransactions({ transactions }) {
           </View>
           <View style={styles.txInfo}>
             <Text style={styles.txMerchant}>{tx.merchant}</Text>
-            <Text style={styles.txCategory}>{tx.category}</Text>
+            <Text style={styles.txCategory}>
+              {tx.source === 'plaid' ? `Bank • ${tx.account || 'Plaid'}` : tx.category}
+              {tx.pending ? ' • pending' : ''}
+            </Text>
           </View>
           <View style={styles.txRight}>
-            <Text style={styles.txAmount}>-${tx.amount.toFixed(2)}</Text>
+            <Text style={[styles.txAmount, Number(tx.rawAmount ?? -tx.amount) > 0 && styles.txIncome]}>
+              {Number(tx.rawAmount ?? -tx.amount) > 0 ? '+' : '-'}${tx.amount.toFixed(2)}
+            </Text>
             <Text style={styles.txTime}>
               {tx.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
             </Text>
@@ -48,12 +55,44 @@ function GroupedTransactions({ transactions }) {
 }
 
 export default function ActivityScreen() {
-  const { transactions, spent, budget } = useBudget();
+  const { transactions: budgetTx, spent, budget } = useBudget();
+  const { bankTransactions, isConnected, isLoading } = usePlaid();
+  const { isAuthenticated } = useAuth();
+
+  const transactions = useMemo(() => {
+    const normalizedBudget = budgetTx.map(tx => ({
+      ...tx,
+      source: 'budget',
+      rawAmount: -Math.abs(Number(tx.amount)),
+      amount: Math.abs(Number(tx.amount)),
+    }));
+
+    const normalizedBank = bankTransactions.map(tx => ({
+      ...tx,
+      amount: Math.abs(Number(tx.amount)),
+    }));
+
+    const merged = isAuthenticated && isConnected
+      ? [...normalizedBank, ...normalizedBudget]
+      : normalizedBudget;
+
+    return merged.sort((a, b) => b.date - a.date);
+  }, [budgetTx, bankTransactions, isAuthenticated, isConnected]);
+
+  const totalSpent = transactions
+    .filter(tx => Number(tx.rawAmount ?? -tx.amount) < 0)
+    .reduce((sum, tx) => sum + tx.amount, 0);
+
+  const spentBase = isConnected ? totalSpent : spent;
+  const budgetBase = budget || 1;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>Activity</Text>
+        {isConnected ? (
+          <Text style={styles.bankBadge}>Bank synced</Text>
+        ) : null}
       </View>
 
       <View style={styles.summaryBar}>
@@ -64,19 +103,22 @@ export default function ActivityScreen() {
         <View style={styles.summaryDivider} />
         <View style={styles.summaryItem}>
           <Text style={styles.summaryLabel}>Total Spent</Text>
-          <Text style={[styles.summaryValue, { color: '#e53e3e' }]}>-${spent.toFixed(2)}</Text>
+          <Text style={[styles.summaryValue, { color: '#e53e3e' }]}>-${spentBase.toFixed(2)}</Text>
         </View>
         <View style={styles.summaryDivider} />
         <View style={styles.summaryItem}>
           <Text style={styles.summaryLabel}>Budget Used</Text>
-          <Text style={styles.summaryValue}>{((spent / budget) * 100).toFixed(1)}%</Text>
+          <Text style={styles.summaryValue}>{((spentBase / budgetBase) * 100).toFixed(1)}%</Text>
         </View>
       </View>
 
-      {/* Progress bar */}
       <View style={styles.progressContainer}>
-        <View style={[styles.progressBar, { width: `${Math.min((spent / budget) * 100, 100)}%` }]} />
+        <View style={[styles.progressBar, { width: `${Math.min((spentBase / budgetBase) * 100, 100)}%` }]} />
       </View>
+
+      {isLoading ? (
+        <Text style={styles.loadingText}>Loading bank transactions…</Text>
+      ) : null}
 
       <FlatList
         data={[{ key: 'content' }]}
@@ -87,7 +129,9 @@ export default function ActivityScreen() {
               <View style={styles.emptyState}>
                 <Text style={styles.emptyIcon}>📊</Text>
                 <Text style={styles.emptyTitle}>No transactions yet</Text>
-                <Text style={styles.emptySubtitle}>Transactions will appear here as you spend</Text>
+                <Text style={styles.emptySubtitle}>
+                  Connect your bank in Profile to import Apple Pay and card charges automatically.
+                </Text>
               </View>
             ) : (
               <GroupedTransactions transactions={transactions} />
@@ -108,13 +152,21 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 0.5,
     borderBottomColor: '#eee',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   title: { fontSize: 22, fontWeight: '700', color: '#111' },
-  summaryBar: {
-    flexDirection: 'row',
-    padding: 20,
-    paddingBottom: 12,
+  bankBadge: {
+    fontSize: 12,
+    color: '#1a6fd4',
+    fontWeight: '600',
+    backgroundColor: '#f0f7ff',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
+  summaryBar: { flexDirection: 'row', padding: 20, paddingBottom: 12 },
   summaryItem: { flex: 1, alignItems: 'center' },
   summaryLabel: { fontSize: 12, color: '#999', marginBottom: 4 },
   summaryValue: { fontSize: 16, fontWeight: '600', color: '#111' },
@@ -126,11 +178,8 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     marginBottom: 16,
   },
-  progressBar: {
-    height: 6,
-    backgroundColor: '#1a6fd4',
-    borderRadius: 3,
-  },
+  progressBar: { height: 6, backgroundColor: '#1a6fd4', borderRadius: 3 },
+  loadingText: { textAlign: 'center', color: '#999', marginBottom: 8 },
   listContent: { paddingHorizontal: 20 },
   dateHeader: {
     fontSize: 13,
@@ -160,12 +209,10 @@ const styles = StyleSheet.create({
   txCategory: { fontSize: 12, color: '#999', textTransform: 'capitalize' },
   txRight: { alignItems: 'flex-end' },
   txAmount: { fontSize: 15, fontWeight: '600', color: '#e53e3e' },
+  txIncome: { color: '#2ecc71' },
   txTime: { fontSize: 12, color: '#999', marginTop: 2 },
-  emptyState: {
-    alignItems: 'center',
-    paddingTop: 80,
-  },
+  emptyState: { alignItems: 'center', paddingTop: 80 },
   emptyIcon: { fontSize: 48, marginBottom: 16 },
   emptyTitle: { fontSize: 18, fontWeight: '600', color: '#111', marginBottom: 8 },
-  emptySubtitle: { fontSize: 14, color: '#999', textAlign: 'center' },
+  emptySubtitle: { fontSize: 14, color: '#999', textAlign: 'center', paddingHorizontal: 24 },
 });

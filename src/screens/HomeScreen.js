@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Animated, StatusBar, Modal,
+  Animated, StatusBar, Modal, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CashStack from '../components/CashStack';
@@ -9,7 +9,9 @@ import BudgetCarousel from '../components/BudgetCarousel';
 import BudgetSetupModal from '../components/BudgetSetupModal';
 import EditPencil from '../components/EditPencil';
 import { EditBudgetNameModal } from '../components/BudgetEditModals';
+import AuthModal from '../components/AuthModal';
 import { useBudget, isValidBudgetName } from '../context/BudgetContext';
+import { useAuth } from '../context/AuthContext';
 
 function TransactionRow({ transaction }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -65,6 +67,9 @@ export default function HomeScreen({ navigation }) {
   const [showAddBudget, setShowAddBudget] = useState(false);
   const [nameEditVisible, setNameEditVisible] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
+  const [authVisible, setAuthVisible] = useState(false);
+
+  const { user, isAuthenticated, signOut } = useAuth();
 
   const cashRef = useRef(null);
 
@@ -106,8 +111,31 @@ export default function HomeScreen({ navigation }) {
 
         <Text style={styles.headerTitle}>Budget Master</Text>
 
-        <View style={styles.headerSpacer} />
+        <TouchableOpacity
+          style={styles.signInBtn}
+          onPress={() => {
+            if (isAuthenticated) {
+              Alert.alert(
+                'Sign out',
+                `Signed in as ${user.email}`,
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Sign Out', style: 'destructive', onPress: signOut },
+                ],
+              );
+            } else {
+              setAuthVisible(true);
+            }
+          }}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.signInBtnText} numberOfLines={1}>
+            {isAuthenticated ? user.name : 'Sign In'}
+          </Text>
+        </TouchableOpacity>
       </View>
+
+      <AuthModal visible={authVisible} onClose={() => setAuthVisible(false)} />
 
       <Modal
         visible={menuVisible}
@@ -257,12 +285,23 @@ const styles = StyleSheet.create({
   menuBtn: { padding: 4, width: 32 },
   menuIcon: { fontSize: 20, color: '#333' },
   headerTitle: {
+    flex: 1,
     fontSize: 18,
     fontWeight: '600',
     color: '#111',
     textAlign: 'center',
   },
-  headerSpacer: { width: 32 },
+  signInBtn: {
+    width: 72,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    alignItems: 'flex-end',
+  },
+  signInBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1a6fd4',
+  },
   menuBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.35)',

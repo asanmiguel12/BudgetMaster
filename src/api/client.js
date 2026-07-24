@@ -1,4 +1,5 @@
 import { API_CONFIG } from './config';
+import { getAuthToken } from './authStorage';
 
 export class ApiError extends Error {
   constructor(message, { status, body } = {}) {
@@ -20,15 +21,21 @@ async function parseResponseBody(response) {
 }
 
 export async function apiRequest(path, options = {}) {
-  const { method = 'GET', body, headers = {} } = options;
+  const { method = 'GET', body, headers = {}, skipAuth = false } = options;
   const url = `${API_CONFIG.baseUrl.replace(/\/$/, '')}${path}`;
+
+  const authHeaders = {};
+  const token = getAuthToken();
+  if (!skipAuth && token) {
+    authHeaders.Authorization = `Bearer ${token}`;
+  }
 
   const response = await fetch(url, {
     method,
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json',
-      'X-User-Id': API_CONFIG.userId,
+      ...authHeaders,
       ...headers,
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
