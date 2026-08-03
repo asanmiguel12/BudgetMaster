@@ -7,14 +7,23 @@ import { useAuth } from './AuthContext';
 
 const BudgetContext = createContext();
 
-const BUDGETS_STORAGE_KEY = '@mybudget/budgets';
-const ACTIVE_BUDGET_INDEX_KEY = '@mybudget/activeBudgetIndex';
+const GUEST_OWNER_ID = 'guest';
 
-// Legacy keys (migrated into budgets array)
+// Legacy shared keys (migrated into guest-scoped storage)
+const LEGACY_BUDGETS_STORAGE_KEY = '@mybudget/budgets';
+const LEGACY_ACTIVE_BUDGET_INDEX_KEY = '@mybudget/activeBudgetIndex';
 const BUDGET_STORAGE_KEY = '@mybudget/budget';
 const BUDGET_NAME_STORAGE_KEY = '@mybudget/budgetName';
 const TIMEFRAME_STORAGE_KEY = '@mybudget/timeframe';
 const PERIOD_START_STORAGE_KEY = '@mybudget/periodStart';
+
+function ownerStorageKeys(ownerId) {
+  const id = ownerId || GUEST_OWNER_ID;
+  return {
+    budgets: `@mybudget/${id}/budgets`,
+    activeIndex: `@mybudget/${id}/activeBudgetIndex`,
+  };
+}
 
 export const TIME_UNITS = {
   days: { label: 'Days', singular: 'day', max: 31 },
@@ -169,16 +178,22 @@ export function createBudget({ amount, timeframe, name = '', periodStartDate }) 
   };
 }
 
-async function loadBudgetsFromStorage() {
-  const savedBudgets = await AsyncStorage.getItem(BUDGETS_STORAGE_KEY);
-  if (savedBudgets) {
-    try {
-      return deserializeBudgets(savedBudgets);
-    } catch {
-      return [];
+async function migrateLegacyBudgetsToGuest() {
+  const guestKeys = ownerStorageKeys(GUEST_OWNER_ID);
+  const existingGuest = await AsyncStorage.getItem(guestKeys.budgets);
+  if (existingGuest) return;
+
+  const legacyBudgets = await AsyncStorage.getItem(LEGACY_BUDGETS_STORAGE_KEY);
+  if (legacyBudgets) {
+    const legacyIndex = await AsyncStorage.getItem(LEGACY_ACTIVE_BUDGET_INDEX_KEY);
+    await AsyncStorage.setItem(guestKeys.budgets, legacyBudgets);
+    if (legacyIndex != null) {
+      await AsyncStorage.setItem(guestKeys.activeIndex, legacyIndex);
     }
+    return;
   }
 
+  // Very old single-budget keys → guest
   const [savedBudget, savedBudgetName, savedTimeframe, savedPeriodStart] = await Promise.all([
     AsyncStorage.getItem(BUDGET_STORAGE_KEY),
     AsyncStorage.getItem(BUDGET_NAME_STORAGE_KEY),
@@ -194,37 +209,60 @@ async function loadBudgetsFromStorage() {
       ? savedPeriodStart
       : new Date().toISOString();
 
-    return [createBudget({
+    const migrated = [createBudget({
       amount: parsedAmount,
       timeframe: parsedTimeframe,
       name: savedBudgetName || '',
       periodStartDate: periodStart,
     })];
+    await AsyncStorage.setItem(guestKeys.budgets, serializeBudgets(migrated));
+    await AsyncStorage.setItem(guestKeys.activeIndex, '0');
   }
-
-  return [];
 }
 
-async function loadBudgetState() {
-  const localBudgets = await loadBudgetsFromStorage();
-  const savedIndex = await AsyncStorage.getItem(ACTIVE_BUDGET_INDEX_KEY);
+async function loadBudgetsFromStorage(ownerId) {
+  const keys = ownerStorageKeys(ownerId);
+
+  if (ownerId === GUEST_OWNER_ID) {
+    await migrateLegacyBudgetsToGuest();
+  }
+
+  const savedBudgets = await AsyncStorage.getItem(keys.budgets);
+  if (!savedBudgets) return [];
+
+  try {
+    return deserializeBudgets(savedBudgets);
+  } catch {
+    return [];
+  }
+}
+
+async function loadBudgetState(ownerId) {
+  const keys = ownerStorageKeys(ownerId);
+  const localBudgets = await loadBudgetsFromStorage(ownerId);
+  const savedIndex = await AsyncStorage.getItem(keys.activeIndex);
   const parsedIndex = savedIndex !== null ? parseInt(savedIndex, 10) : 0;
   const localIndex = localBudgets.length > 0
     ? Math.min(Math.max(0, parsedIndex), localBudgets.length - 1)
     : 0;
   const localState = { budgets: localBudgets, activeBudgetIndex: localIndex };
 
-  if (canUseRemoteApi()) {
+  // Only signed-in users sync with the remote API (scoped by JWT user id)
+  if (ownerId !== GUEST_OWNER_ID && canUseRemoteApi()) {
     try {
       const remoteState = await fetchBudgetState();
       if (remoteState?.budgets?.length > 0) {
         return remoteState;
       }
       if (localBudgets.length > 0) {
-        await syncBudgetState(localBudgets, localIndex);
+        try {
+          await syncBudgetState(localBudgets, localIndex);
+        } catch (syncError) {
+          console.warn('Failed to push user budgets:', syncError.message);
+        }
         return localState;
       }
-      return remoteState ?? localState;
+      return localState;
     } catch (error) {
       console.warn('Failed to load budgets from API, falling back to local storage:', error.message);
     }
@@ -235,6 +273,7 @@ async function loadBudgetState() {
 
 export function BudgetProvider({ children }) {
   const { user, isAuthReady } = useAuth();
+  const ownerId = user?.id || GUEST_OWNER_ID;
   const [budgets, setBudgetsState] = useState([]);
   const [activeBudgetIndex, setActiveBudgetIndexState] = useState(0);
   const [isLoadingBudget, setIsLoadingBudget] = useState(true);
@@ -243,14 +282,21 @@ export function BudgetProvider({ children }) {
   const [pendingTransaction, setPendingTransaction] = useState(null);
   const [isAnimating, setIsAnimating] = useState(false);
   const activeBudgetIndexRef = useRef(0);
+  const ownerIdRef = useRef(ownerId);
+
+  useEffect(() => {
+    ownerIdRef.current = ownerId;
+  }, [ownerId]);
 
   const persistBudgets = useCallback(async (nextBudgets, nextIndex = activeBudgetIndex) => {
+    const keys = ownerStorageKeys(ownerIdRef.current);
     await Promise.all([
-      AsyncStorage.setItem(BUDGETS_STORAGE_KEY, serializeBudgets(nextBudgets)),
-      AsyncStorage.setItem(ACTIVE_BUDGET_INDEX_KEY, String(nextIndex)),
+      AsyncStorage.setItem(keys.budgets, serializeBudgets(nextBudgets)),
+      AsyncStorage.setItem(keys.activeIndex, String(nextIndex)),
     ]);
 
-    if (canUseRemoteApi()) {
+    // Remote sync only for signed-in users (JWT scopes server data)
+    if (ownerIdRef.current !== GUEST_OWNER_ID && canUseRemoteApi()) {
       try {
         await syncBudgetState(nextBudgets, nextIndex);
         setSyncError(null);
@@ -275,8 +321,12 @@ export function BudgetProvider({ children }) {
 
     let cancelled = false;
     setIsLoadingBudget(true);
+    // Clear UI immediately so guest budgets never flash under a signed-in user (and vice versa)
+    setBudgetsState([]);
+    setActiveBudgetIndexState(0);
+    activeBudgetIndexRef.current = 0;
 
-    loadBudgetState().then(({ budgets: loadedBudgets, activeBudgetIndex: safeIndex }) => {
+    loadBudgetState(ownerId).then(({ budgets: loadedBudgets, activeBudgetIndex: safeIndex }) => {
       if (cancelled) return;
 
       setBudgetsState(loadedBudgets);
@@ -285,7 +335,7 @@ export function BudgetProvider({ children }) {
       setNeedsBudgetSetup(loadedBudgets.length === 0);
       setIsLoadingBudget(false);
 
-      if (loadedBudgets.length > 0) {
+      if (loadedBudgets.length > 0 && ownerId !== GUEST_OWNER_ID && canUseRemoteApi()) {
         persistBudgets(loadedBudgets, safeIndex);
       }
     });
@@ -293,7 +343,7 @@ export function BudgetProvider({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [isAuthReady, user?.id]);
+  }, [isAuthReady, ownerId]);
 
   const setActiveBudgetIndex = useCallback((index) => {
     const clamped = budgets.length > 0
@@ -301,7 +351,8 @@ export function BudgetProvider({ children }) {
       : 0;
     setActiveBudgetIndexState(clamped);
     activeBudgetIndexRef.current = clamped;
-    AsyncStorage.setItem(ACTIVE_BUDGET_INDEX_KEY, String(clamped));
+    const keys = ownerStorageKeys(ownerIdRef.current);
+    AsyncStorage.setItem(keys.activeIndex, String(clamped));
   }, [budgets.length]);
 
   const activeBudget = budgets[activeBudgetIndex] ?? null;
@@ -432,6 +483,8 @@ export function BudgetProvider({ children }) {
       isLoadingBudget,
       needsBudgetSetup,
       syncError,
+      ownerId,
+      isGuest: ownerId === GUEST_OWNER_ID,
       isApiEnabled: canUseRemoteApi(),
       setBudgetSetup,
       addBudget,

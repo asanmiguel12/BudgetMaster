@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as SplashScreen from 'expo-splash-screen';
 
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { BudgetProvider, useBudget } from './src/context/BudgetContext';
@@ -15,11 +16,21 @@ import ProfileScreen from './src/screens/ProfileScreen';
 
 const Tab = createBottomTabNavigator();
 
+SplashScreen.preventAutoHideAsync();
+SplashScreen.setOptions({ duration: 400, fade: true });
+
 function AppContent() {
   const { isLoadingBudget, needsBudgetSetup } = useBudget();
   const { isAuthReady } = useAuth();
+  const isAppReady = isAuthReady && !isLoadingBudget;
 
-  if (!isAuthReady || isLoadingBudget) {
+  useEffect(() => {
+    if (isAppReady) {
+      SplashScreen.hideAsync();
+    }
+  }, [isAppReady]);
+
+  if (!isAppReady) {
     return null;
   }
 

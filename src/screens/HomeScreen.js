@@ -101,6 +101,10 @@ export default function HomeScreen({ navigation }) {
 
       {/* Header */}
       <View style={styles.header}>
+        <View style={styles.headerTitleWrap} pointerEvents="none">
+          <Text style={styles.headerTitle}>Budget Master</Text>
+        </View>
+
         <TouchableOpacity
           style={styles.menuBtn}
           onPress={() => setMenuVisible(true)}
@@ -108,8 +112,6 @@ export default function HomeScreen({ navigation }) {
         >
           <Text style={styles.menuIcon}>☰</Text>
         </TouchableOpacity>
-
-        <Text style={styles.headerTitle}>Budget Master</Text>
 
         <TouchableOpacity
           style={styles.signInBtn}
@@ -129,8 +131,12 @@ export default function HomeScreen({ navigation }) {
           }}
           activeOpacity={0.7}
         >
-          <Text style={styles.signInBtnText} numberOfLines={1}>
-            {isAuthenticated ? user.name : 'Sign In'}
+          <Text
+            style={styles.signInBtnText}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {isAuthenticated ? (user?.full_name || user?.email || 'Account') : 'Sign In'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -275,32 +281,49 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingHorizontal: 20,
     paddingVertical: 12,
+    minHeight: 48,
     borderBottomWidth: 0.5,
     borderBottomColor: '#eee',
+    position: 'relative',
   },
 
-  menuBtn: { padding: 4, width: 32 },
+  headerTitleWrap: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 96,
+    zIndex: 0,
+  },
+  menuBtn: {
+    position: 'absolute',
+    left: 20,
+    zIndex: 2,
+    padding: 4,
+  },
   menuIcon: { fontSize: 20, color: '#333' },
   headerTitle: {
-    flex: 1,
     fontSize: 18,
     fontWeight: '600',
     color: '#111',
     textAlign: 'center',
   },
   signInBtn: {
-    width: 72,
+    position: 'absolute',
+    right: 20,
+    zIndex: 2,
+    maxWidth: 120,
     paddingVertical: 6,
-    paddingHorizontal: 4,
-    alignItems: 'flex-end',
+    paddingLeft: 8,
   },
   signInBtnText: {
     fontSize: 13,
     fontWeight: '600',
     color: '#1a6fd4',
+    lineHeight: 18,
+    textAlign: 'right',
   },
   menuBackdrop: {
     flex: 1,
