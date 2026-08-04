@@ -98,12 +98,11 @@ export default function BudgetSetupModal({ visible, onComplete, onClose, title }
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={{ width: cardWidth }}
         >
-          <Pressable
+          <View
             style={[
               styles.card,
               { width: cardWidth, height: formCardHeight, paddingVertical: 24 },
             ]}
-            onPress={(e) => e.stopPropagation()}
           >
             <View style={styles.stepLayout}>
               <ScrollView
@@ -230,7 +229,7 @@ export default function BudgetSetupModal({ visible, onComplete, onClose, title }
                 )}
               </View>
             </View>
-          </Pressable>
+          </View>
         </KeyboardAvoidingView>
       </Pressable>
     </Modal>

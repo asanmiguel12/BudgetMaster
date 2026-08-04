@@ -40,7 +40,7 @@ export function EditBudgetModal({ visible, initialAmount, onSave, onClose }) {
     <Modal visible={visible} animationType="fade" transparent statusBarTranslucent onRequestClose={onClose}>
       <Pressable style={styles.overlay} onPress={onClose}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
+          <View style={styles.card}>
             <Text style={styles.title}>Edit overall budget</Text>
             <Text style={styles.subtitle}>Update your total budget for this period.</Text>
 
@@ -71,7 +71,7 @@ export function EditBudgetModal({ visible, initialAmount, onSave, onClose }) {
                 <Text style={styles.saveText}>Save</Text>
               </TouchableOpacity>
             </View>
-          </Pressable>
+          </View>
         </KeyboardAvoidingView>
       </Pressable>
     </Modal>
@@ -119,7 +119,7 @@ export function EditBudgetNameModal({ visible, initialName, onSave, onDelete, on
     <Modal visible={visible} animationType="fade" transparent statusBarTranslucent onRequestClose={onClose}>
       <Pressable style={styles.overlay} onPress={onClose}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
+          <View style={styles.card}>
             <View style={styles.nameModalHeader}>
               <Text style={styles.title}>Budget Name</Text>
               {onDelete ? (
@@ -149,7 +149,7 @@ export function EditBudgetNameModal({ visible, initialName, onSave, onDelete, on
                 <Text style={styles.saveText}>Save</Text>
               </TouchableOpacity>
             </View>
-          </Pressable>
+          </View>
         </KeyboardAvoidingView>
       </Pressable>
     </Modal>
@@ -188,7 +188,7 @@ export function EditTimeframeModal({ visible, initialTimeframe, onSave, onClose 
     <Modal visible={visible} animationType="fade" transparent statusBarTranslucent onRequestClose={onClose}>
       <Pressable style={styles.overlay} onPress={() => { setDropdownOpen(false); onClose(); }}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
+          <View style={styles.card}>
             <Text style={styles.title}>Edit timeframe</Text>
             <Text style={styles.subtitle}>Adjust your budget period. This resets the period start to today.</Text>
 
@@ -245,7 +245,7 @@ export function EditTimeframeModal({ visible, initialTimeframe, onSave, onClose 
                 <Text style={styles.saveText}>Save</Text>
               </TouchableOpacity>
             </View>
-          </Pressable>
+          </View>
         </KeyboardAvoidingView>
       </Pressable>
     </Modal>

@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Pressable } from 'react-native';
 import { BUDGET_NAME_PRESETS, isValidBudgetName } from '../context/BudgetContext';
 
 export default function BudgetNamePicker({ value, onChange, autoFocusCustom = false }) {
   const [customName, setCustomName] = useState('');
   const [selectedPresetId, setSelectedPresetId] = useState(null);
+  const [isCustomFocused, setIsCustomFocused] = useState(false);
+  const customInputRef = useRef(null);
 
   useEffect(() => {
     const preset = BUDGET_NAME_PRESETS.find((p) => p.label === value);
@@ -32,6 +34,23 @@ export default function BudgetNamePicker({ value, onChange, autoFocusCustom = fa
     onChange(text);
   };
 
+  const handleCustomFocus = () => {
+    setIsCustomFocused(true);
+    if (selectedPresetId) {
+      setSelectedPresetId(null);
+      setCustomName('');
+      onChange('');
+    }
+  };
+
+  const handleCustomBlur = () => {
+    setIsCustomFocused(false);
+  };
+
+  const focusCustomInput = () => {
+    customInputRef.current?.focus();
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.presetGrid}>
@@ -55,18 +74,34 @@ export default function BudgetNamePicker({ value, onChange, autoFocusCustom = fa
 
       <Text style={styles.orLabel}>or enter a custom name</Text>
 
-      <TextInput
-        style={styles.customInput}
-        value={customName}
-        onChangeText={handleCustomChange}
-        placeholder="Custom budget name"
-        placeholderTextColor="#bbb"
-        maxLength={40}
-        returnKeyType="done"
-        autoCorrect={false}
-        autoFocus={autoFocusCustom && !value}
-        textAlign="center"
-      />
+      <Pressable
+        style={[
+          styles.customInputWrap,
+          isCustomFocused && styles.customInputWrapFocused,
+          selectedPresetId == null && customName.length > 0 && styles.customInputWrapActive,
+        ]}
+        onPress={focusCustomInput}
+      >
+        <TextInput
+          ref={customInputRef}
+          style={styles.customInput}
+          value={customName}
+          onChangeText={handleCustomChange}
+          onFocus={handleCustomFocus}
+          onBlur={handleCustomBlur}
+          placeholder="Custom budget name"
+          placeholderTextColor="#bbb"
+          maxLength={40}
+          returnKeyType="done"
+          autoCorrect={false}
+          autoCapitalize="words"
+          autoFocus={autoFocusCustom && !value}
+          textAlign={isCustomFocused || customName ? 'left' : 'center'}
+          caretHidden={false}
+          cursorColor="#1a6fd4"
+          selectionColor="rgba(26, 111, 212, 0.25)"
+        />
+      </Pressable>
 
       {!isValidBudgetName(value) && (
         <Text style={styles.requiredHint}>Pick a category or enter a name to continue</Text>
@@ -121,20 +156,30 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 10,
   },
-  customInput: {
+  customInputWrap: {
     alignSelf: 'center',
     width: '85%',
     maxWidth: 280,
     borderWidth: 1.5,
     borderColor: '#ddd',
     borderRadius: 12,
+    backgroundColor: '#fff',
+    marginBottom: 12,
+  },
+  customInputWrapFocused: {
+    borderColor: '#1a6fd4',
+    backgroundColor: '#f8fbff',
+  },
+  customInputWrapActive: {
+    borderColor: '#1a6fd4',
+  },
+  customInput: {
+    width: '100%',
     paddingVertical: 14,
     paddingHorizontal: 16,
     fontSize: 16,
     color: '#111',
-    backgroundColor: '#fff',
     textAlign: 'center',
-    marginBottom: 12,
   },
   requiredHint: {
     fontSize: 12,
