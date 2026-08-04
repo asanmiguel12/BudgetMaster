@@ -1,6 +1,16 @@
 import { API_CONFIG } from './config';
 import { getAuthToken } from './authStorage';
 
+const REQUEST_TIMEOUT_MS = 8000;
+
+function fetchWithTimeout(url, options = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => {
+    clearTimeout(timer);
+  });
+}
+
 export class ApiError extends Error {
   constructor(message, { status, body } = {}) {
     super(message);
@@ -30,7 +40,7 @@ export async function apiRequest(path, options = {}) {
     authHeaders.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     method,
     headers: {
       Accept: 'application/json',

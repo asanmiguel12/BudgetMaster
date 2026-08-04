@@ -20,7 +20,13 @@ export function AuthProvider({ children }) {
 
       if (token && savedUser && isApiEnabled()) {
         try {
-          const { user: currentUser } = await fetchCurrentUser();
+          const timeout = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Session check timed out')), 8000);
+          });
+          const { user: currentUser } = await Promise.race([
+            fetchCurrentUser(),
+            timeout,
+          ]);
           setUser(currentUser);
         } catch {
           await clearAuthSession();
