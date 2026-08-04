@@ -237,6 +237,14 @@ async function loadBudgetsFromStorage(ownerId) {
   }
 }
 
+function withTimeout(promise, ms, label = 'Request') {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 async function loadBudgetState(ownerId) {
   const keys = ownerStorageKeys(ownerId);
   const localBudgets = await loadBudgetsFromStorage(ownerId);
@@ -250,13 +258,13 @@ async function loadBudgetState(ownerId) {
   // Only signed-in users sync with the remote API (scoped by JWT user id)
   if (ownerId !== GUEST_OWNER_ID && canUseRemoteApi()) {
     try {
-      const remoteState = await fetchBudgetState();
+      const remoteState = await withTimeout(fetchBudgetState(), 8000, 'Budget fetch');
       if (remoteState?.budgets?.length > 0) {
         return remoteState;
       }
       if (localBudgets.length > 0) {
         try {
-          await syncBudgetState(localBudgets, localIndex);
+          await withTimeout(syncBudgetState(localBudgets, localIndex), 8000, 'Budget sync');
         } catch (syncError) {
           console.warn('Failed to push user budgets:', syncError.message);
         }
@@ -283,6 +291,7 @@ export function BudgetProvider({ children }) {
   const [isAnimating, setIsAnimating] = useState(false);
   const activeBudgetIndexRef = useRef(0);
   const ownerIdRef = useRef(ownerId);
+  const hasLoadedOnceRef = useRef(false);
 
   useEffect(() => {
     ownerIdRef.current = ownerId;
@@ -320,29 +329,52 @@ export function BudgetProvider({ children }) {
     if (!isAuthReady) return;
 
     let cancelled = false;
-    setIsLoadingBudget(true);
-    // Clear UI immediately so guest budgets never flash under a signed-in user (and vice versa)
+    // Only block the whole app on the first load. On sign-in/out, keep the shell mounted
+    // so a slow/failed API call cannot leave the home screen blank forever.
+    if (!hasLoadedOnceRef.current) {
+      setIsLoadingBudget(true);
+    }
+
+    // Clear immediately so guest budgets never flash under a signed-in user (and vice versa)
     setBudgetsState([]);
     setActiveBudgetIndexState(0);
     activeBudgetIndexRef.current = 0;
+    setNeedsBudgetSetup(false);
 
-    loadBudgetState(ownerId).then(({ budgets: loadedBudgets, activeBudgetIndex: safeIndex }) => {
-      if (cancelled) return;
+    (async () => {
+      try {
+        const { budgets: loadedBudgets, activeBudgetIndex: safeIndex } = await loadBudgetState(ownerId);
+        if (cancelled) return;
 
-      setBudgetsState(loadedBudgets);
-      setActiveBudgetIndexState(safeIndex);
-      activeBudgetIndexRef.current = safeIndex;
-      setNeedsBudgetSetup(loadedBudgets.length === 0);
-      setIsLoadingBudget(false);
+        setBudgetsState(loadedBudgets);
+        setActiveBudgetIndexState(safeIndex);
+        activeBudgetIndexRef.current = safeIndex;
+        setNeedsBudgetSetup(loadedBudgets.length === 0);
 
-      if (loadedBudgets.length > 0 && ownerId !== GUEST_OWNER_ID && canUseRemoteApi()) {
-        persistBudgets(loadedBudgets, safeIndex);
+        if (loadedBudgets.length > 0 && ownerId !== GUEST_OWNER_ID && canUseRemoteApi()) {
+          // Persist remote → local cache (and re-sync). Intentionally omit persistBudgets
+          // from effect deps so activeBudgetIndex changes do not re-trigger a full reload.
+          persistBudgets(loadedBudgets, safeIndex);
+        }
+      } catch (error) {
+        if (cancelled) return;
+        console.warn('Failed to load budgets:', error?.message || error);
+        setBudgetsState([]);
+        setActiveBudgetIndexState(0);
+        activeBudgetIndexRef.current = 0;
+        setNeedsBudgetSetup(true);
+      } finally {
+        if (!cancelled) {
+          hasLoadedOnceRef.current = true;
+          setIsLoadingBudget(false);
+        }
       }
-    });
+    })();
 
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload only on auth owner change
   }, [isAuthReady, ownerId]);
 
   const setActiveBudgetIndex = useCallback((index) => {

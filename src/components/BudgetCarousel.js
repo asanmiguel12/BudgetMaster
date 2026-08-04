@@ -53,7 +53,16 @@ export default function BudgetCarousel({ previewDaysElapsed, onPreviewDaysElapse
     }
   };
 
-  if (budgets.length === 0) return null;
+  if (budgets.length === 0) {
+    return (
+      <View style={[styles.emptyCard, { width: width - 32 }]}>
+        <Text style={styles.emptyTitle}>No budgets yet</Text>
+        <Text style={styles.emptySubtitle}>
+          Create a budget to see your cash stacks here.
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View>
@@ -124,6 +133,29 @@ export default function BudgetCarousel({ previewDaysElapsed, onPreviewDaysElapse
 }
 
 const styles = StyleSheet.create({
+  emptyCard: {
+    alignSelf: 'center',
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 12,
+    paddingVertical: 36,
+    paddingHorizontal: 24,
+    borderRadius: 20,
+    backgroundColor: '#e8f1fc',
+    alignItems: 'center',
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a6fd4',
+    marginBottom: 6,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#5a6a7a',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
   dotsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
