@@ -61,6 +61,7 @@ export default function HomeScreen({ navigation }) {
   const {
     transactions, pendingTransaction, isAnimating,
     simulateBankNotification, addBudget, budgetName, updateBudgetName,
+    deleteBudget, activeBudget,
   } = useBudget();
 
   const [previewDaysElapsed, setPreviewDaysElapsed] = useState(null);
@@ -177,6 +178,7 @@ export default function HomeScreen({ navigation }) {
         visible={nameEditVisible}
         initialName={budgetName}
         onSave={updateBudgetName}
+        onDelete={() => deleteBudget(activeBudget?.id)}
         onClose={() => setNameEditVisible(false)}
       />
 

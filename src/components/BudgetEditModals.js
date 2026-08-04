@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  Alert,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { TIME_UNITS, formatTimeframe, isValidBudgetName } from '../context/BudgetContext';
@@ -77,7 +78,7 @@ export function EditBudgetModal({ visible, initialAmount, onSave, onClose }) {
   );
 }
 
-export function EditBudgetNameModal({ visible, initialName, onSave, onClose }) {
+export function EditBudgetNameModal({ visible, initialName, onSave, onDelete, onClose }) {
   const [name, setName] = useState('');
   const isValid = isValidBudgetName(name);
 
@@ -94,12 +95,44 @@ export function EditBudgetNameModal({ visible, initialName, onSave, onClose }) {
     }
   };
 
+  const handleDelete = () => {
+    if (!onDelete) return;
+
+    Alert.alert(
+      'Delete budget',
+      `Remove "${initialName?.trim() || 'this budget'}"? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Budget',
+          style: 'destructive',
+          onPress: () => {
+            onDelete();
+            onClose();
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <Modal visible={visible} animationType="fade" transparent statusBarTranslucent onRequestClose={onClose}>
       <Pressable style={styles.overlay} onPress={onClose}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.title}>Budget Name</Text>
+            <View style={styles.nameModalHeader}>
+              <Text style={styles.title}>Budget Name</Text>
+              {onDelete ? (
+                <TouchableOpacity
+                  style={styles.deleteBtn}
+                  onPress={handleDelete}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.deleteBtnText}>Delete</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
             <Text style={styles.subtitle}>Pick a category or enter a custom name.</Text>
 
             <BudgetNamePicker value={name} onChange={setName} />
@@ -238,8 +271,27 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
     color: '#111',
-    marginBottom: 8,
     textAlign: 'center',
+  },
+  nameModalHeader: {
+    width: '100%',
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 32,
+    marginBottom: 8,
+  },
+  deleteBtn: {
+    position: 'absolute',
+    right: -80,
+    top: 2,
+    paddingVertical: 4,
+    paddingLeft: 8,
+  },
+  deleteBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#d32f2f',
   },
   subtitle: {
     fontSize: 14,

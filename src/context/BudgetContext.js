@@ -415,6 +415,31 @@ export function BudgetProvider({ children }) {
     updateActiveBudget({ name: name.trim() });
   }, [updateActiveBudget]);
 
+  const deleteBudget = useCallback(async (budgetId) => {
+    const id = budgetId ?? activeBudget?.id;
+    if (!id) return;
+
+    setBudgetsState((prev) => {
+      const deleteIndex = prev.findIndex((b) => b.id === id);
+      if (deleteIndex === -1) return prev;
+
+      const next = prev.filter((b) => b.id !== id);
+      let nextIndex = activeBudgetIndexRef.current;
+
+      if (deleteIndex < nextIndex) {
+        nextIndex -= 1;
+      } else if (deleteIndex === nextIndex) {
+        nextIndex = Math.max(0, Math.min(nextIndex, next.length - 1));
+      }
+
+      setActiveBudgetIndexState(nextIndex);
+      activeBudgetIndexRef.current = nextIndex;
+      setNeedsBudgetSetup(next.length === 0);
+      persistBudgets(next, nextIndex);
+      return next;
+    });
+  }, [activeBudget, persistBudgets]);
+
   const updateTimeframe = useCallback(async (selectedTimeframe) => {
     if (!isValidTimeframe(selectedTimeframe)) return;
     updateActiveBudget({
@@ -490,6 +515,7 @@ export function BudgetProvider({ children }) {
       addBudget,
       updateBudget,
       updateBudgetName,
+      deleteBudget,
       updateBudgetById,
       updateTimeframe,
       spent: activeMetrics.spent,
