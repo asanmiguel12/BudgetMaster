@@ -57,6 +57,32 @@ const TAB_ROUTES = [
   { name: 'Profile', label: 'Profile', icon: '👤' },
 ];
 
+function ProfileSilhouette({ size = 28, color = '#1a6fd4' }) {
+  const headSize = size * 0.36;
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'flex-end' }}>
+      <View
+        style={{
+          width: headSize,
+          height: headSize,
+          borderRadius: headSize / 2,
+          backgroundColor: color,
+          marginBottom: 1,
+        }}
+      />
+      <View
+        style={{
+          width: size * 0.72,
+          height: size * 0.38,
+          borderTopLeftRadius: size * 0.36,
+          borderTopRightRadius: size * 0.36,
+          backgroundColor: color,
+        }}
+      />
+    </View>
+  );
+}
+
 export default function HomeScreen({ navigation }) {
   const {
     transactions, pendingTransaction, isAnimating,
@@ -120,7 +146,7 @@ export default function HomeScreen({ navigation }) {
             if (isAuthenticated) {
               Alert.alert(
                 'Sign out',
-                `Signed in as ${user.email}`,
+                `Signed in as ${user?.name || user?.full_name || user?.email}`,
                 [
                   { text: 'Cancel', style: 'cancel' },
                   { text: 'Sign Out', style: 'destructive', onPress: signOut },
@@ -132,13 +158,11 @@ export default function HomeScreen({ navigation }) {
           }}
           activeOpacity={0.7}
         >
-          <Text
-            style={styles.signInBtnText}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
-            {isAuthenticated ? (user?.full_name || user?.email || 'Account') : 'Sign In'}
-          </Text>
+          {isAuthenticated ? (
+            <ProfileSilhouette size={28} color="#1a6fd4" />
+          ) : (
+            <Text style={styles.signInBtnText}>Sign In</Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -316,9 +340,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 20,
     zIndex: 2,
-    maxWidth: 120,
-    paddingVertical: 6,
-    paddingLeft: 8,
+    paddingVertical: 4,
   },
   signInBtnText: {
     fontSize: 13,
