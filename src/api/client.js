@@ -1,7 +1,7 @@
 import { API_CONFIG } from './config';
 import { getAuthToken } from './authStorage';
 
-const REQUEST_TIMEOUT_MS = 8000;
+const REQUEST_TIMEOUT_MS = 20000;
 
 function fetchWithTimeout(url, options = {}) {
   const controller = new AbortController();
@@ -40,16 +40,32 @@ export async function apiRequest(path, options = {}) {
     authHeaders.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetchWithTimeout(url, {
-    method,
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      ...authHeaders,
-      ...headers,
-    },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  let response;
+  try {
+    response = await fetchWithTimeout(url, {
+      method,
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        ...authHeaders,
+        ...headers,
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch (error) {
+    const aborted = error?.name === 'AbortError'
+      || /aborted|cancelled|canceled/i.test(error?.message || '');
+    if (aborted) {
+      throw new ApiError(
+        `Request timed out talking to ${API_CONFIG.baseUrl}. Is the backend running, and is EXPO_PUBLIC_API_URL your current Mac IP/port?`,
+        { status: 0 },
+      );
+    }
+    throw new ApiError(
+      error?.message || `Network error talking to ${API_CONFIG.baseUrl}`,
+      { status: 0 },
+    );
+  }
 
   const responseBody = await parseResponseBody(response);
 

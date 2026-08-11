@@ -22,6 +22,15 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "./plugins/withXcode26SwiftUICoreFix.js",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "buildReactNativeFromSource": true
+          }
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -30,7 +39,8 @@
           "imageWidth": 280,
           "resizeMode": "contain"
         }
-      ]
+      ],
+      "expo-build-properties"
     ]
   }
 }
