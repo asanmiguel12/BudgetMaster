@@ -30,6 +30,10 @@ export async function loadAuthSession() {
 }
 
 export async function saveAuthSession({ token, user }) {
+  if (!token) {
+    throw new Error('Missing auth token');
+  }
+
   sessionToken = token;
   sessionUser = user;
   await Promise.all([

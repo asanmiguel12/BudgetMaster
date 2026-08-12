@@ -56,7 +56,12 @@ export default function AuthModal({ visible, onClose }) {
       }
       onClose();
     } catch (err) {
-      setError(err.message || 'Something went wrong. Please try again.');
+      const message = err.message || 'Something went wrong. Please try again.';
+      if (/already been registered|already registered|already exists/i.test(message)) {
+        setError('That email is already registered. Switch to Sign In or use a different email.');
+      } else {
+        setError(message);
+      }
     }
   };
 

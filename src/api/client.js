@@ -30,6 +30,27 @@ async function parseResponseBody(response) {
   }
 }
 
+function getErrorMessage(responseBody, status) {
+  if (typeof responseBody?.error === 'string' && responseBody.error) {
+    return responseBody.error;
+  }
+
+  if (Array.isArray(responseBody?.errors) && responseBody.errors.length > 0) {
+    const details = responseBody.errors
+      .map((entry) => {
+        const field = entry.path || entry.param;
+        const message = entry.msg || entry.message;
+        if (field && message) return `${field}: ${message}`;
+        return message;
+      })
+      .filter(Boolean);
+
+    if (details.length > 0) return details.join('. ');
+  }
+
+  return `Request failed (${status})`;
+}
+
 export async function apiRequest(path, options = {}) {
   const { method = 'GET', body, headers = {}, skipAuth = false } = options;
   const url = `${API_CONFIG.baseUrl.replace(/\/$/, '')}${path}`;
@@ -70,8 +91,10 @@ export async function apiRequest(path, options = {}) {
   const responseBody = await parseResponseBody(response);
 
   if (!response.ok) {
-    const message = responseBody?.error || `Request failed (${response.status})`;
-    throw new ApiError(message, { status: response.status, body: responseBody });
+    throw new ApiError(getErrorMessage(responseBody, response.status), {
+      status: response.status,
+      body: responseBody,
+    });
   }
 
   return responseBody;

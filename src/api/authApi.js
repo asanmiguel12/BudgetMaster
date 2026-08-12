@@ -6,11 +6,18 @@ export async function registerUser({ email, password, name }) {
     throw new Error('API is disabled');
   }
 
-  return apiRequest('/api/auth/register', {
+  const result = await apiRequest('/api/auth/register', {
     method: 'POST',
     body: { email, password, name },
     skipAuth: true,
   });
+
+  if (result.token) {
+    return result;
+  }
+
+  // Backend may create the account but omit a session token; sign in to finish.
+  return loginUser({ email, password });
 }
 
 export async function loginUser({ email, password }) {
