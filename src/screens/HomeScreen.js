@@ -274,7 +274,7 @@ export default function HomeScreen({ navigation }) {
           disabled={isAnimating}
         >
           <Text style={styles.demoButtonText}>
-            {isAnimating ? 'Processing...' : '💳 Simulate Bank Notification'}
+            {isAnimating ? 'Processing...' : '💳 Bank Charge'}
           </Text>
         </TouchableOpacity>
 
