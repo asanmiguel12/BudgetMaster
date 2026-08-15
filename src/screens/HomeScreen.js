@@ -259,12 +259,12 @@ export default function HomeScreen({ navigation }) {
         )}
 
         {/* Mini cash stacks */}
-        <View style={styles.cashArea}>
+        {/* <View style={styles.cashArea}>
           <CashStack
             miniOnly
             onRef={(api) => (cashRef.current = api)}
           />
-        </View>
+        </View> */}
 
 
         {/* Demo button */}
