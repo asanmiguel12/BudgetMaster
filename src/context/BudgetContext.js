@@ -506,13 +506,15 @@ export function BudgetProvider({ children }) {
     }, 2000);
   }, [updateBudgets]);
 
-  const simulateBankNotification = useCallback(() => {
-    const randomAmount = Math.floor(Math.random() * 40) + 1;
+  const simulateBankCharge = useCallback((amount, merchant = 'Simulated Charge') => {
+    const normalized = Math.round(Number(amount) * 100) / 100;
+    if (!Number.isFinite(normalized) || normalized <= 0) return null;
+
     const newTx = {
       id: Date.now().toString(),
-      merchant: 'Coffee Corner',
+      merchant,
       category: 'coffee',
-      amount: randomAmount,
+      amount: normalized,
       date: new Date(),
       icon: 'local-cafe',
       color: '#8B6914',
@@ -526,6 +528,14 @@ export function BudgetProvider({ children }) {
   const timeframe = activeBudget?.timeframe ?? null;
   const periodStartDate = activeBudget?.periodStartDate ?? null;
   const transactions = activeBudget?.transactions ?? [];
+  const pendingDeduction = isAnimating && pendingTransaction ? pendingTransaction.amount : 0;
+  const remaining = activeMetrics.remaining - pendingDeduction;
+  const onTrackProgress = getOnTrackProgress(
+    budget,
+    remaining,
+    timeframe,
+    periodStartDate,
+  );
 
   return (
     <BudgetContext.Provider value={{
@@ -550,10 +560,12 @@ export function BudgetProvider({ children }) {
       deleteBudget,
       updateBudgetById,
       updateTimeframe,
-      spent: activeMetrics.spent,
-      remaining: activeMetrics.remaining,
-      percentRemaining: activeMetrics.percentRemaining,
-      onTrackProgress: activeMetrics.onTrackProgress,
+      spent: activeMetrics.spent + pendingDeduction,
+      remaining,
+      percentRemaining: budget > 0
+        ? ((remaining / budget) * 100).toFixed(2)
+        : activeMetrics.percentRemaining,
+      onTrackProgress,
       daysRemaining: activeMetrics.daysRemaining,
       totalDays: activeMetrics.totalDays,
       getBudgetMetrics,
@@ -561,7 +573,7 @@ export function BudgetProvider({ children }) {
       pendingTransaction,
       isAnimating,
       addTransaction,
-      simulateBankNotification,
+      simulateBankCharge,
     }}>
       {children}
     </BudgetContext.Provider>

@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import BudgetDualCard from './BudgetDualCard';
 import TimeframeProgressBar from './TimeframeProgressBar';
-import { useBudget, getBudgetMetrics, getOnTrackProgressForDaysRemaining } from '../context/BudgetContext';
+import { useBudget, getBudgetMetrics, getOnTrackProgress, getOnTrackProgressForDaysRemaining } from '../context/BudgetContext';
 
 export default function BudgetCarousel({ previewDaysElapsed, onPreviewDaysElapsedChange }) {
   const {
@@ -17,6 +17,8 @@ export default function BudgetCarousel({ previewDaysElapsed, onPreviewDaysElapse
     activeBudgetIndex,
     setActiveBudgetIndex,
     updateBudgetById,
+    pendingTransaction,
+    isAnimating,
   } = useBudget();
   const { width } = useWindowDimensions();
   const listRef = useRef(null);
@@ -29,18 +31,32 @@ export default function BudgetCarousel({ previewDaysElapsed, onPreviewDaysElapse
     });
   }, [activeBudgetIndex, budgets.length]);
 
+  const getDisplayRemaining = (item, index, baseRemaining) => {
+    const isActive = index === activeBudgetIndex;
+    const pendingAmount = isActive && isAnimating && pendingTransaction
+      ? pendingTransaction.amount
+      : 0;
+    return baseRemaining - pendingAmount;
+  };
+
   const getDisplayOnTrack = (item, index) => {
-    const { remaining, totalDays, daysRemaining, onTrackProgress } = getBudgetMetrics(item);
+    const metrics = getBudgetMetrics(item);
+    const remaining = getDisplayRemaining(item, index, metrics.remaining);
     if (index !== activeBudgetIndex || previewDaysElapsed === null) {
-      return onTrackProgress;
+      return getOnTrackProgress(
+        item.amount,
+        remaining,
+        item.timeframe,
+        item.periodStartDate,
+      );
     }
-    const actualDaysElapsed = Math.max(0, totalDays - daysRemaining);
+    const actualDaysElapsed = Math.max(0, metrics.totalDays - metrics.daysRemaining);
     const elapsed = previewDaysElapsed ?? actualDaysElapsed;
-    const previewDaysRemaining = Math.max(0, totalDays - elapsed);
+    const previewDaysRemaining = Math.max(0, metrics.totalDays - elapsed);
     return getOnTrackProgressForDaysRemaining(
       item.amount,
       remaining,
-      totalDays,
+      metrics.totalDays,
       previewDaysRemaining,
     );
   };
@@ -87,7 +103,8 @@ export default function BudgetCarousel({ previewDaysElapsed, onPreviewDaysElapse
           }, 100);
         }}
         renderItem={({ item, index }) => {
-          const { remaining, totalDays, daysRemaining } = getBudgetMetrics(item);
+          const metrics = getBudgetMetrics(item);
+          const remaining = getDisplayRemaining(item, index, metrics.remaining);
           const isActive = index === activeBudgetIndex;
           return (
             <View style={{ width }}>
@@ -100,8 +117,8 @@ export default function BudgetCarousel({ previewDaysElapsed, onPreviewDaysElapse
               />
               <TimeframeProgressBar
                 timeframe={item.timeframe}
-                totalDays={totalDays}
-                daysRemaining={daysRemaining}
+                totalDays={metrics.totalDays}
+                daysRemaining={metrics.daysRemaining}
                 onTrackProgress={getDisplayOnTrack(item, index)}
                 previewDaysElapsed={isActive ? previewDaysElapsed : null}
                 onPreviewDaysElapsedChange={isActive ? onPreviewDaysElapsedChange : undefined}

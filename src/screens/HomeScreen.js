@@ -4,7 +4,7 @@ import {
   Animated, StatusBar, Modal, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import CashStack from '../components/CashStack';
+import SimulateChargeModal from '../components/SimulateChargeModal';
 import BudgetCarousel from '../components/BudgetCarousel';
 import BudgetSetupModal from '../components/BudgetSetupModal';
 import EditPencil from '../components/EditPencil';
@@ -86,12 +86,13 @@ function ProfileSilhouette({ size = 28, color = '#1a6fd4' }) {
 export default function HomeScreen({ navigation }) {
   const {
     transactions, pendingTransaction, isAnimating,
-    simulateBankNotification, addBudget, budgetName, updateBudgetName,
-    deleteBudget, activeBudget,
+    simulateBankCharge, addBudget, budgetName, updateBudgetName,
+    deleteBudget, activeBudget, remaining, needsBudgetSetup,
   } = useBudget();
 
   const [previewDaysElapsed, setPreviewDaysElapsed] = useState(null);
   const [showAddBudget, setShowAddBudget] = useState(false);
+  const [showSimulateCharge, setShowSimulateCharge] = useState(false);
   const [nameEditVisible, setNameEditVisible] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [authVisible, setAuthVisible] = useState(false);
@@ -167,6 +168,14 @@ export default function HomeScreen({ navigation }) {
       </View>
 
       <AuthModal visible={authVisible} onClose={() => setAuthVisible(false)} />
+
+      <SimulateChargeModal
+        visible={showSimulateCharge}
+        budgetName={budgetName}
+        remaining={remaining}
+        onSubmit={(amount) => simulateBankCharge(amount)}
+        onClose={() => setShowSimulateCharge(false)}
+      />
 
       <Modal
         visible={menuVisible}
@@ -269,12 +278,12 @@ export default function HomeScreen({ navigation }) {
 
         {/* Demo button */}
         <TouchableOpacity
-          style={styles.demoButton}
-          onPress={simulateBankNotification}
-          disabled={isAnimating}
+          style={[styles.demoButton, (isAnimating || needsBudgetSetup || !activeBudget) && styles.demoButtonDisabled]}
+          onPress={() => setShowSimulateCharge(true)}
+          disabled={isAnimating || needsBudgetSetup || !activeBudget}
         >
           <Text style={styles.demoButtonText}>
-            {isAnimating ? 'Processing...' : '💳 Bank Charge'}
+            {isAnimating ? 'Processing...' : '💳 Simulate Bank Charge'}
           </Text>
         </TouchableOpacity>
 
@@ -478,6 +487,9 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#1a6fd4',
     borderStyle: 'dashed',
+  },
+  demoButtonDisabled: {
+    opacity: 0.5,
   },
   demoButtonText: { color: '#1a6fd4', fontSize: 15, fontWeight: '600' },
 });
