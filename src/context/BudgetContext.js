@@ -523,6 +523,22 @@ export function BudgetProvider({ children }) {
     return newTx;
   }, [addTransaction]);
 
+  const removeTransaction = useCallback((transactionId) => {
+    if (!transactionId || isAnimating) return;
+    const indexAtCall = activeBudgetIndexRef.current;
+    updateBudgets((prev) =>
+      prev.map((b, i) =>
+        i === indexAtCall
+          ? {
+              ...b,
+              transactions: (b.transactions || []).filter((t) => t.id !== transactionId),
+            }
+          : b,
+      ),
+      indexAtCall,
+    );
+  }, [updateBudgets, isAnimating]);
+
   const budget = activeBudget?.amount ?? 0;
   const budgetName = activeBudget?.name ?? '';
   const timeframe = activeBudget?.timeframe ?? null;
@@ -573,6 +589,7 @@ export function BudgetProvider({ children }) {
       pendingTransaction,
       isAnimating,
       addTransaction,
+      removeTransaction,
       simulateBankCharge,
     }}>
       {children}

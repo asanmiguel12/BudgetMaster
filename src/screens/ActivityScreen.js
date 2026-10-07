@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBudget } from '../context/BudgetContext';
 import { usePlaid } from '../context/PlaidContext';
 import { useAuth } from '../context/AuthContext';
+import UndoChargeButton from '../components/UndoChargeButton';
 
 const CATEGORY_ICONS = {
   coffee: '☕',
@@ -13,7 +14,7 @@ const CATEGORY_ICONS = {
   default: '💳',
 };
 
-function GroupedTransactions({ transactions }) {
+function GroupedTransactions({ transactions, onUndoBudgetCharge, undoDisabled }) {
   const grouped = transactions.reduce((acc, tx) => {
     const dateKey = tx.date.toLocaleDateString('en-US', {
       weekday: 'long', month: 'long', day: 'numeric',
@@ -48,6 +49,12 @@ function GroupedTransactions({ transactions }) {
               {tx.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
             </Text>
           </View>
+          {tx.source === 'budget' ? (
+            <UndoChargeButton
+              onPress={() => onUndoBudgetCharge?.(tx.id)}
+              disabled={undoDisabled}
+            />
+          ) : null}
         </View>
       ))}
     </View>
@@ -55,7 +62,7 @@ function GroupedTransactions({ transactions }) {
 }
 
 export default function ActivityScreen() {
-  const { transactions: budgetTx, spent, budget } = useBudget();
+  const { transactions: budgetTx, spent, budget, removeTransaction, isAnimating } = useBudget();
   const { bankTransactions, isConnected, isLoading } = usePlaid();
   const { isAuthenticated } = useAuth();
 
@@ -134,7 +141,11 @@ export default function ActivityScreen() {
                 </Text>
               </View>
             ) : (
-              <GroupedTransactions transactions={transactions} />
+              <GroupedTransactions
+                transactions={transactions}
+                onUndoBudgetCharge={removeTransaction}
+                undoDisabled={isAnimating}
+              />
             )}
           </View>
         )}

@@ -10,10 +10,11 @@ import BudgetSetupModal from '../components/BudgetSetupModal';
 import EditPencil from '../components/EditPencil';
 import { EditBudgetNameModal } from '../components/BudgetEditModals';
 import AuthModal from '../components/AuthModal';
+import UndoChargeButton from '../components/UndoChargeButton';
 import { useBudget, isValidBudgetName } from '../context/BudgetContext';
 import { useAuth } from '../context/AuthContext';
 
-function TransactionRow({ transaction }) {
+function TransactionRow({ transaction, onUndo, undoDisabled }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -46,6 +47,10 @@ function TransactionRow({ transaction }) {
       </View>
 
       <Text style={styles.txAmount}>-${transaction.amount.toFixed(2)}</Text>
+      <UndoChargeButton
+        onPress={() => onUndo?.(transaction.id)}
+        disabled={undoDisabled}
+      />
     </Animated.View>
   );
 }
@@ -86,7 +91,7 @@ function ProfileSilhouette({ size = 28, color = '#1a6fd4' }) {
 export default function HomeScreen({ navigation }) {
   const {
     transactions, pendingTransaction, isAnimating,
-    simulateBankCharge, addBudget, budgetName, updateBudgetName,
+    simulateBankCharge, removeTransaction, addBudget, budgetName, updateBudgetName,
     deleteBudget, activeBudget, remaining, needsBudgetSetup,
   } = useBudget();
 
@@ -297,7 +302,12 @@ export default function HomeScreen({ navigation }) {
           </View>
 
           {transactions.slice(0, 5).map(tx => (
-            <TransactionRow key={tx.id} transaction={tx} />
+            <TransactionRow
+              key={tx.id}
+              transaction={tx}
+              onUndo={removeTransaction}
+              undoDisabled={isAnimating}
+            />
           ))}
         </View>
 
